@@ -1,0 +1,4281 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orientointipeli v0.6 – Takymetrin orientointi vapaalle asemapisteelle</title>
+  <style>
+    /* =========================================================================
+       ITSENÄINEN OFFLINE-TYYLIKIRJASTO (EI ULKOISIA VERKKORIIPPUVUUKSIA)
+       ========================================================================= */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.45;
+    }
+    ::selection {
+      background-color: #fbbf24;
+      color: #0f172a;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    button, input, select {
+      font-family: inherit;
+    }
+    button {
+      cursor: pointer;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #d97706 !important;
+    }
+
+    /* Takymetrin kuori ja näyttö */
+    .ts-bezel {
+      background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+      border: 3px solid #eab308;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+    .ts-screen {
+      background: #f1f5f9;
+      color: #0f172a;
+      box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.25);
+    }
+    .ts-softkey {
+      background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+      border: 1px solid #475569;
+      box-shadow: 0 2px 0 #0f172a;
+      transition: all 0.12s ease;
+    }
+    .ts-softkey:hover:not(:disabled) {
+      background: linear-gradient(180deg, #475569 0%, #334155 100%);
+      border-color: #eab308;
+    }
+    .ts-softkey:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 0 0 #0f172a;
+    }
+    .ts-softkey:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* Vierityspalkit */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.2); }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.6); border-radius: 9999px; }
+
+    /* Asettelu ja ruudukot */
+    .hidden { display: none !important; }
+    .block { display: block; }
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .flex-col { flex-direction: column; }
+    .flex-1 { flex: 1 1 0%; }
+    .flex-wrap { flex-wrap: wrap; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .shrink-0 { flex-shrink: 0; }
+
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    .col-span-5 { grid-column: span 5 / span 5; }
+    .col-span-7 { grid-column: span 7 / span 7; }
+
+    .sticky { position: sticky; }
+    .top-0 { top: 0; }
+    .z-30 { z-index: 30; }
+    .relative { position: relative; }
+    .overflow-hidden { overflow: hidden; }
+    .overflow-x-auto { overflow-x: auto; }
+    .overflow-y-auto { overflow-y: auto; }
+    .aspect-square { aspect-ratio: 1 / 1; }
+
+    .max-w-7xl { max-width: 80rem; }
+    .max-w-\[360px\] { max-width: 360px; }
+    .max-w-\[260px\] { max-width: 260px; }
+    .w-full { width: 100%; }
+    .w-16 { width: 4rem; }
+    .w-14 { width: 3.5rem; }
+    .w-9 { width: 2.25rem; }
+    .w-5 { width: 1.25rem; }
+    .w-2\.5 { width: 0.625rem; }
+    .w-\[126px\] { width: 126px; }
+    .h-full { height: 100%; }
+    .h-9 { height: 2.25rem; }
+    .h-5 { height: 1.25rem; }
+    .h-2\.5 { height: 0.625rem; }
+    .h-\[126px\] { height: 126px; }
+    .min-h-\[485px\] { min-height: 485px; }
+    .max-h-44 { max-height: 11rem; }
+    .max-h-36 { max-height: 9rem; }
+
+    .mx-auto { margin-left: auto; margin-right: auto; }
+    .mt-0\.5 { margin-top: 0.125rem; }
+    .mt-1 { margin-top: 0.25rem; }
+    .mt-1\.5 { margin-top: 0.375rem; }
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-2\.5 { margin-top: 0.625rem; }
+    .mb-0\.5 { margin-bottom: 0.125rem; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-1\.5 { margin-bottom: 0.375rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+
+    .p-1 { padding: 0.25rem; }
+    .p-1\.5 { padding: 0.375rem; }
+    .p-2 { padding: 0.5rem; }
+    .p-2\.5 { padding: 0.625rem; }
+    .p-3 { padding: 0.75rem; }
+    .p-3\.5 { padding: 0.875rem; }
+    .px-1 { padding-left: 0.25rem; padding-right: 0.25rem; }
+    .px-1\.5 { padding-left: 0.375rem; padding-right: 0.375rem; }
+    .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+    .px-2\.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+    .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+    .pt-0\.5 { padding-top: 0.125rem; }
+    .pt-1 { padding-top: 0.25rem; }
+    .pb-1 { padding-bottom: 0.25rem; }
+    .pb-2\.5 { padding-bottom: 0.625rem; }
+    .pr-2 { padding-right: 0.5rem; }
+    .pl-2 { padding-left: 0.5rem; }
+    .pl-4 { padding-left: 1rem; }
+
+    .gap-1 { gap: 0.25rem; }
+    .gap-1\.5 { gap: 0.375rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-2\.5 { gap: 0.625rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-3\.5 { gap: 0.875rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-5 { gap: 1.25rem; }
+
+    .space-y-1 > * + * { margin-top: 0.25rem; }
+    .space-y-1\.5 > * + * { margin-top: 0.375rem; }
+    .space-y-2 > * + * { margin-top: 0.5rem; }
+    .space-y-2\.5 > * + * { margin-top: 0.625rem; }
+    .space-y-3 > * + * { margin-top: 0.75rem; }
+
+    .divide-y > * + * { border-top-width: 1px; border-top-style: solid; }
+    .divide-slate-800\/60 > * + * { border-color: rgba(30, 41, 59, 0.6); }
+    .divide-slate-200 > * + * { border-color: #e2e8f0; }
+
+    /* Typografia */
+    .text-\[10px\] { font-size: 10px; line-height: 1.3; }
+    .text-\[11px\] { font-size: 11px; line-height: 1.35; }
+    .text-xs { font-size: 0.75rem; line-height: 1.4; }
+    .text-sm { font-size: 0.875rem; line-height: 1.45; }
+    .text-lg { font-size: 1.125rem; line-height: 1.5; }
+    .font-sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .font-normal { font-weight: 400; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .tracking-tight { letter-spacing: -0.025em; }
+    .tracking-wider { letter-spacing: 0.05em; }
+    .leading-tight { line-height: 1.25; }
+    .leading-snug { line-height: 1.375; }
+    .leading-relaxed { line-height: 1.6; }
+    .text-left { text-align: left; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .uppercase { text-transform: uppercase; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .line-through { text-decoration: line-through; }
+    .list-disc { list-style-type: disc; }
+    .underline { text-decoration: underline; }
+    .hover\:underline:hover { text-decoration: underline; }
+
+    /* Taustavärit */
+    .bg-slate-950 { background-color: #020617; }
+    .bg-slate-950\/60 { background-color: rgba(2, 6, 23, 0.6); }
+    .bg-slate-950\/70 { background-color: rgba(2, 6, 23, 0.7); }
+    .bg-slate-950\/90 { background-color: rgba(2, 6, 23, 0.9); }
+    .bg-slate-900 { background-color: #0f172a; }
+    .bg-slate-900\/70 { background-color: rgba(15, 23, 42, 0.7); }
+    .bg-slate-900\/80 { background-color: rgba(15, 23, 42, 0.8); }
+    .bg-slate-900\/90 { background-color: rgba(15, 23, 42, 0.9); }
+    .bg-slate-800 { background-color: #1e293b; }
+    .bg-slate-800\/90 { background-color: rgba(30, 41, 59, 0.9); }
+    .bg-slate-700 { background-color: #334155; }
+    .bg-slate-300 { background-color: #cbd5e1; }
+    .bg-slate-200 { background-color: #e2e8f0; }
+    .bg-slate-200\/70 { background-color: rgba(226, 232, 240, 0.7); }
+    .bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8); }
+    .bg-slate-200\/90 { background-color: rgba(226, 232, 240, 0.9); }
+    .bg-slate-100 { background-color: #f1f5f9; }
+    .bg-slate-50 { background-color: #f8fafc; }
+    .bg-white { background-color: #ffffff; }
+    .bg-white\/80 { background-color: rgba(255, 255, 255, 0.8); }
+    .hover\:bg-slate-900:hover { background-color: #0f172a; }
+    .hover\:bg-slate-900\/80:hover { background-color: rgba(15, 23, 42, 0.8); }
+    .hover\:bg-slate-800:hover { background-color: #1e293b; }
+    .hover\:bg-slate-700:hover { background-color: #334155; }
+    .hover\:bg-slate-600:hover { background-color: #475569; }
+    .hover\:bg-slate-300:hover { background-color: #cbd5e1; }
+    .hover\:bg-slate-50:hover { background-color: #f8fafc; }
+
+    .bg-amber-600 { background-color: #d97706; }
+    .bg-amber-500 { background-color: #f59e0b; }
+    .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.1); }
+    .bg-amber-500\/20 { background-color: rgba(245, 158, 11, 0.2); }
+    .bg-amber-100 { background-color: #fef3c7; }
+    .bg-amber-50 { background-color: #fffbeb; }
+    .bg-amber-50\/90 { background-color: rgba(255, 251, 235, 0.9); }
+    .hover\:bg-amber-600:hover { background-color: #d97706; }
+    .hover\:bg-amber-500:hover { background-color: #f59e0b; }
+    .hover\:bg-amber-400:hover { background-color: #fbbf24; }
+    .active\:bg-amber-500:active { background-color: #f59e0b; }
+
+    .bg-orange-600 { background-color: #ea580c; }
+    .bg-orange-500\/20 { background-color: rgba(249, 115, 22, 0.2); }
+    .hover\:bg-orange-500:hover { background-color: #f97316; }
+
+    .bg-emerald-700 { background-color: #047857; }
+    .bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.1); }
+    .bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.2); }
+    .bg-emerald-400 { background-color: #34d399; }
+    .bg-emerald-100 { background-color: #d1fae5; }
+    .bg-emerald-50 { background-color: #ecfdf5; }
+    .hover\:bg-emerald-600:hover { background-color: #059669; }
+
+    .bg-sky-950 { background-color: #082f49; }
+    .bg-sky-950\/50 { background-color: rgba(8, 47, 73, 0.5); }
+    .bg-sky-900 { background-color: #0c4a6e; }
+    .bg-sky-700 { background-color: #0369a1; }
+    .bg-sky-500\/10 { background-color: rgba(14, 165, 233, 0.1); }
+    .bg-sky-500\/20 { background-color: rgba(14, 165, 233, 0.2); }
+    .bg-sky-100 { background-color: #e0f2fe; }
+    .hover\:bg-sky-900:hover { background-color: #0c4a6e; }
+    .hover\:bg-sky-600:hover { background-color: #0284c7; }
+
+    .bg-rose-950\/60 { background-color: rgba(76, 5, 25, 0.6); }
+    .bg-rose-500\/20 { background-color: rgba(244, 63, 94, 0.2); }
+    .bg-rose-100 { background-color: #ffe4e6; }
+    .bg-rose-50 { background-color: #fff1f2; }
+
+    /* Tekstivärit */
+    .text-white { color: #ffffff; }
+    .text-slate-950 { color: #020617; }
+    .text-slate-900 { color: #0f172a; }
+    .text-slate-800 { color: #1e293b; }
+    .text-slate-700 { color: #334155; }
+    .text-slate-600 { color: #475569; }
+    .text-slate-500 { color: #64748b; }
+    .text-slate-400 { color: #94a3b8; }
+    .text-slate-300 { color: #cbd5e1; }
+    .text-slate-200 { color: #e2e8f0; }
+    .text-slate-100 { color: #f1f5f9; }
+    .text-amber-950 { color: #451a03; }
+    .text-amber-900 { color: #78350f; }
+    .text-amber-800 { color: #92400e; }
+    .text-amber-400 { color: #fbbf24; }
+    .text-amber-300 { color: #fcd34d; }
+    .text-orange-300 { color: #fdba74; }
+    .text-emerald-950 { color: #022c22; }
+    .text-emerald-900 { color: #064e3b; }
+    .text-emerald-800 { color: #065f46; }
+    .text-emerald-700 { color: #047857; }
+    .text-emerald-400 { color: #34d399; }
+    .text-emerald-300 { color: #6ee7b7; }
+    .text-sky-900 { color: #0c4a6e; }
+    .text-sky-800 { color: #075985; }
+    .text-sky-400 { color: #38bdf8; }
+    .text-sky-300 { color: #7dd3fc; }
+    .text-rose-900 { color: #881337; }
+    .text-rose-800 { color: #9f1239; }
+    .text-rose-600 { color: #e11d48; }
+    .text-rose-300 { color: #fda4af; }
+    .text-rose-200 { color: #fecdd3; }
+    .hover\:text-white:hover { color: #ffffff; }
+    .hover\:text-rose-800:hover { color: #9f1239; }
+    .active\:text-slate-950:active { color: #020617; }
+
+    /* Reunat ja pyöristykset */
+    .border { border-width: 1px; border-style: solid; }
+    .border-2 { border-width: 2px; border-style: solid; }
+    .border-4 { border-width: 4px; border-style: solid; }
+    .border-t { border-top-width: 1px; border-top-style: solid; }
+    .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+    .border-r { border-right-width: 1px; border-right-style: solid; }
+    .border-collapse { border-collapse: collapse; }
+
+    .border-slate-800 { border-color: #1e293b; }
+    .border-slate-800\/80 { border-color: rgba(30, 41, 59, 0.8); }
+    .border-slate-700 { border-color: #334155; }
+    .border-slate-400 { border-color: #94a3b8; }
+    .border-slate-300 { border-color: #cbd5e1; }
+    .border-slate-200 { border-color: #e2e8f0; }
+    .border-amber-700\/60 { border-color: rgba(180, 83, 9, 0.6); }
+    .border-amber-500\/30 { border-color: rgba(245, 158, 11, 0.3); }
+    .border-amber-500\/40 { border-color: rgba(245, 158, 11, 0.4); }
+    .border-amber-400 { border-color: #fbbf24; }
+    .border-amber-300 { border-color: #fcd34d; }
+    .border-amber-200 { border-color: #fde68a; }
+    .border-orange-400\/40 { border-color: rgba(251, 146, 60, 0.4); }
+    .border-emerald-500\/30 { border-color: rgba(16, 185, 129, 0.3); }
+    .border-emerald-500\/40 { border-color: rgba(16, 185, 129, 0.4); }
+    .border-emerald-400 { border-color: #34d399; }
+    .border-emerald-400\/30 { border-color: rgba(52, 211, 153, 0.3); }
+    .border-emerald-300 { border-color: #6ee7b7; }
+    .border-sky-700\/70 { border-color: rgba(3, 105, 161, 0.7); }
+    .border-sky-500\/30 { border-color: rgba(14, 165, 233, 0.3); }
+    .border-sky-500\/40 { border-color: rgba(14, 165, 233, 0.4); }
+    .border-sky-400\/30 { border-color: rgba(56, 189, 248, 0.3); }
+    .border-sky-300 { border-color: #7dd3fc; }
+    .border-rose-800 { border-color: #9f1239; }
+    .border-rose-500\/40 { border-color: rgba(244, 63, 94, 0.4); }
+    .border-rose-400 { border-color: #fb7185; }
+    .border-rose-400\/30 { border-color: rgba(251, 113, 133, 0.3); }
+    .border-rose-300 { border-color: #fda4af; }
+
+    .rounded { border-radius: 0.25rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-xl { border-radius: 0.75rem; }
+    .rounded-2xl { border-radius: 1rem; }
+    .rounded-full { border-radius: 9999px; }
+
+    .shadow { box-shadow: 0 1px 3px 0 rgba(0,0,0,0.2), 0 1px 2px -1px rgba(0,0,0,0.2); }
+    .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.35), 0 4px 6px -4px rgba(0,0,0,0.3); }
+    .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+    .shadow-inner { box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.3); }
+
+    .opacity-45 { opacity: 0.45; }
+    .cursor-pointer { cursor: pointer; }
+    .cursor-grab { cursor: grab; }
+    .active\:cursor-grabbing:active { cursor: grabbing; }
+    .transition { transition: all 0.15s ease; }
+    .transition-all { transition: all 0.15s ease; }
+    .duration-200 { transition-duration: 200ms; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Responsiiviset murtopisteet */
+    @media (min-width: 640px) {
+      .sm\:block { display: block; }
+      .sm\:px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .sm\:p-4 { padding: 1rem; }
+      .sm\:text-sm { font-size: 0.875rem; }
+      .sm\:text-base { font-size: 1rem; }
+      .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (min-width: 768px) {
+      .md\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+      .md\:col-span-7 { grid-column: span 7 / span 7; }
+      .md\:col-span-5 { grid-column: span 5 / span 5; }
+    }
+    @media (min-width: 1024px) {
+      .lg\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+      .lg\:col-span-7 { grid-column: span 7 / span 7; }
+      .lg\:col-span-5 { grid-column: span 5 / span 5; }
+      .lg\:sticky { position: sticky; }
+      .lg\:top-20 { top: 5rem; }
+    }
+
+    /* Tietoja-modaali */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background-color: rgba(2, 6, 23, 0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      backdrop-filter: blur(2px);
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 26rem;
+      background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+      border: 2px solid #eab308;
+      border-radius: 1rem;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+      color: #f8fafc;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- YLÄPALKIN HALLINTA JA SKENAARIOVALINTA -->
+  <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-amber-500 flex items-center justify-center text-slate-950 font-bold shadow">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9"></circle>
+            <line x1="12" y1="3" x2="12" y2="21"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-2">
+            <span>Orientointipeli</span>
+            <span class="text-[11px] mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">v0.6</span>
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">
+            Takymetrin orientointi vapaalle asemapisteelle: 1. Tasaus &amp; sää &rarr; 2. Liitospisteet &rarr; 3. ASP &rarr; 4. Havainnot &rarr; 5. Tasoitus
+          </p>
+        </div>
+      </div>
+
+      <!-- Harjoitusskenaarion valinta ja toiminnot -->
+      <div class="flex flex-wrap items-center gap-2">
+        <label for="scenarioSelect" class="text-xs font-medium text-slate-300">Harjoitus:</label>
+        <select id="scenarioSelect" onchange="changeScenario(this.value)" class="bg-slate-800 border border-slate-700 text-xs sm:text-sm rounded-lg px-2.5 py-1.5 text-white">
+          <option value="0">1. Perusharjoitus (Prismat &amp; heijastintarra)</option>
+          <option value="1">2. Talvipakkanen (-18 °C, heijastintarra &amp; tarra)</option>
+          <option value="2">3. Vikapähkinä (Yksi liitospiste siirtynyt maastossa)</option>
+        </select>
+
+        <button onclick="resetCurrentScenario()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1" title="Aloita skenaario alusta">
+          <span>↺ Nollaa</span>
+        </button>
+
+        <button onclick="toggleSound()" id="soundBtn" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-400 px-2.5 py-1.5 rounded-lg transition" title="Äänimerkit päälle/pois">
+          🔊 Äänet
+        </button>
+
+        <button onclick="openAboutModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1" title="Tietoja sovelluksesta">
+          <span>ℹ️ Tietoja</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- PÄÄSISÄLTÖ -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+    <!-- VASEN SARAKE: MAASTOKORTTI, TÄHTÄYSNÄKYMÄ JA YLEISKARTTA (7 col) -->
+    <section class="lg:col-span-7 flex flex-col gap-4">
+
+      <!-- MAASTOKORTTI / OLOSUHTEET JA LÄHTÖTIEDOT -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-lg">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30" id="scenarioTag">
+              Skenaario 1
+            </span>
+            <h2 class="text-sm font-bold text-white">📋 Maastokortti &amp; Todelliset olosuhteet</h2>
+          </div>
+          <button onclick="toggleFieldCard()" id="fieldCardToggleBtn" class="text-xs text-slate-400 hover:text-white">
+            Piilota / Näytä
+          </button>
+        </div>
+
+        <div id="fieldCardContent" class="space-y-3">
+          <p id="scenarioDescription" class="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80"></p>
+
+          <!-- Todelliset mittarit: Sää, Kojekorkeus ja Ohje -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <!-- Säämittari -->
+            <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0 text-lg">
+                🌡️
+              </div>
+              <div>
+                <div class="text-[11px] text-slate-400 font-medium">Lämpö- ja ilmanpainemittari (Vaihe 1)</div>
+                <div class="text-xs font-bold text-white mono mt-0.5">
+                  <span id="trueTempDisplay">+15.0 °C</span> | <span id="truePressDisplay">1013.2 hPa</span>
+                </div>
+                <div class="text-[11px] text-slate-400">Suht. kosteus: <span id="trueHumDisplay" class="mono text-slate-200">60 %</span></div>
+              </div>
+            </div>
+
+            <!-- Taskumitta kolmijalassa -->
+            <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 text-lg">
+                📏
+              </div>
+              <div>
+                <div class="text-[11px] text-slate-400 font-medium">Kojekorkeus vaaka-akselille (Vaihe 3)</div>
+                <div class="text-xs font-bold text-white mono mt-0.5">
+                  i = <span id="trueInstHeightDisplay" class="text-amber-300">1.640</span> m <span class="text-slate-400 font-normal">tai</span> <span class="text-emerald-300">0.000</span> m
+                </div>
+                <div class="text-[11px] text-slate-400">Suositusnimi: <span class="mono text-slate-200" id="suggestedStnName">ASP1</span></div>
+              </div>
+            </div>
+
+            <!-- Prismavakio-opas -->
+            <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 text-lg">
+                🎯
+              </div>
+              <div>
+                <div class="text-[11px] text-slate-400 font-medium">Tähysten tiedot (Vaihe 4)</div>
+                <div class="text-[11px] text-slate-300 leading-tight mt-0.5">
+                  Katso <strong>mittauskaukoputkella</strong> kohteeseen nähdäksesi pistetunnuksen, tähyksen tyypin ja tähyskorkeuden <span class="mono">m</span>!
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tunnetut kiintopisteet (Koordinaattiluettelo) -->
+          <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+              <span class="text-xs font-semibold text-slate-300">Tunnetut kiintopisteet / liitospisteet (ETRS-GK / N2000):</span>
+              <span class="text-[11px] text-slate-400">Syötä lähtöpisteet Vaiheessa 2 takymetriin</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse mono text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 text-[11px]">
+                    <th class="py-1 pr-2">Piste (ID)</th>
+                    <th class="py-1 px-2">X / N (m)</th>
+                    <th class="py-1 px-2">Y / E (m)</th>
+                    <th class="py-1 px-2">H (m)</th>
+                    <th class="py-1 pl-2 font-sans">Tähys ja sijainti</th>
+                  </tr>
+                </thead>
+                <tbody id="fieldCardPointsBody" class="divide-y divide-slate-800/60 text-slate-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KAUKOPUTKINÄKYMÄ JA YLEISKARTTA -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-lg">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>🔭 Näkemäkuva ja tilannekuvakartta</span>
+              <span id="lockBadge" class="text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                Ei kohdetta viivaristikossa
+              </span>
+            </h2>
+            <p class="text-xs text-slate-400">Suuntaa ensin <strong>karkealla tähtäimellä</strong> tai klikkaamalla kartan <span class="mono text-amber-300">?</span>-symbolia, ja vaihda sitten <strong>kaukoputkeen</strong> tarkkaa tähtäystä varten.</p>
+          </div>
+
+          <!-- Tähtäystapa (Karkea tähtäin / Kaukoputki), Kojeasento ja Autolock (ATR) -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button onclick="toggleInstrumentFace()" id="faceToggleBtn" class="px-2.5 py-1 rounded text-xs font-bold bg-sky-500/20 hover:bg-sky-900 text-sky-300 border border-sky-400/30 transition" title="Kojeasennon vaihtaminen: kaukoputken kääntö vaaka-akselin ympäri ja alhidadin kääntö 200 gon">
+              🔄 Vaihda II-asentoon
+            </button>
+            <button onclick="triggerAutolock()" id="atrBtn" class="px-2.5 py-1 rounded text-xs font-semibold bg-sky-950 hover:bg-sky-900 text-sky-300 border border-sky-700/70 transition flex items-center gap-1" title="Automaattinen tähtäys (vaatii että prisma tai heijastintarra on hakualueella)">
+              <span>🎯</span>
+              <span id="atrBtnText">Autolock (ATR)</span>
+            </button>
+            <button onclick="setZoom(1)" id="zoom1Btn" class="px-2.5 py-1 rounded text-xs font-semibold bg-amber-500 text-slate-950 transition">
+              📐 Karkea tähtäin
+            </button>
+            <button onclick="setZoom(8)" id="zoom8Btn" class="px-2.5 py-1 rounded text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+              🔭 Kaukoputki
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-center">
+          <!-- Tähtäimen / Kaukoputken Canvas (7 col) -->
+          <div class="md:col-span-7 flex flex-col items-center">
+            <!-- Kaukoputken HUD-tiedot (maskin ulkopuolella) -->
+            <div class="w-full max-w-[360px] mb-2 flex items-center justify-between bg-slate-950/90 px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] mono text-amber-300 shadow">
+              <div class="flex items-center gap-1.5">
+                <span id="hudModeLabel" class="text-slate-200 font-sans font-semibold">📐 Karkea tähtäin</span>
+                <span id="hudFaceBadge" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30">I-asento</span>
+              </div>
+              <div class="flex gap-2.5">
+                <span>Hz: <strong id="hudHz">100.0000</strong></span>
+                <span>z: <strong id="hudV">100.0000</strong></span>
+              </div>
+            </div>
+
+            <div class="relative w-full max-w-[360px] aspect-square rounded-2xl overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-950 cursor-grab active:cursor-grabbing transition-all duration-200" id="scopeContainer">
+              <canvas id="scopeCanvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- Ohje-indikaattori (maskin alapuolella) -->
+            <div class="w-full max-w-[360px] mt-2 flex justify-center">
+              <div id="scopeTargetHint" class="w-full text-center bg-slate-950/90 px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] text-slate-200 truncate shadow">
+                Raahaa näkymää tai klikkaa karttaa
+              </div>
+            </div>
+
+            <!-- Täsmäruuvit (vaaka- ja pystysuunnan liikeruuvit, hienosäätö 0.5 mgon) -->
+            <div class="w-full max-w-[360px] mt-2.5 bg-slate-950/90 border border-slate-800 rounded-xl p-2.5">
+              <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+                <span>Täsmäruuvit (Tarkka kohdistus ≤ 1.5 mgon)</span>
+                <span class="mono text-slate-300">Askel: 0.5 mgon (Nuolinäppäimet)</span>
+              </div>
+              <div class="grid grid-cols-4 gap-1.5">
+                <button onclick="nudgeAngle(-0.0020, 0)" class="bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-xs py-1.5 rounded font-medium border border-slate-700 transition">
+                  &larr; Vaaka vas.
+                </button>
+                <button onclick="nudgeAngle(0.0020, 0)" class="bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-xs py-1.5 rounded font-medium border border-slate-700 transition">
+                  Vaaka oik. &rarr;
+                </button>
+                <button onclick="nudgeAngle(0, -0.0020)" class="bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-xs py-1.5 rounded font-medium border border-slate-700 transition">
+                  &uarr; Pysty ylös
+                </button>
+                <button onclick="nudgeAngle(0, 0.0020)" class="bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-xs py-1.5 rounded font-medium border border-slate-700 transition">
+                  &darr; Pysty alas
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tilannekuvakartta ja tähystiedot (5 col) -->
+          <div class="md:col-span-5 flex flex-col gap-3">
+            <!-- Yleiskartta -->
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 flex flex-col items-center">
+              <div class="w-full flex items-center justify-between text-xs text-slate-300 mb-1.5 px-1">
+                <span class="font-semibold">🗺️ Yleiskartta (Klikkaa kohdetta)</span>
+                <span class="text-[11px] text-amber-400">? = tuntematon</span>
+              </div>
+              <canvas id="mapCanvas" class="w-full max-w-[260px] aspect-square rounded-lg bg-slate-900 border border-slate-800 cursor-pointer"></canvas>
+            </div>
+
+            <!-- Kaukoputkessa näkyvän tähyksen tiedot -->
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <div class="text-xs font-bold text-slate-200 mb-1.5 flex items-center justify-between">
+                <span>🔍 Tähtäyspisteen tarkastelu</span>
+                <span id="targetInspectorBadge" class="text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 mono"></span>
+              </div>
+              <div id="targetInspectorContent" class="text-xs text-slate-400 space-y-1">
+                Suuntaa mittauskaukoputki kohteeseen nähdäksesi sen pistetunnuksen, tähyksen tyypin (prismavakion) ja tähyskorkeuden <span class="mono">m</span>.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- OIKEA SARAKE: TAKYMETRIN OHJAINLAITE (5 col) -->
+    <section class="lg:col-span-5 lg:sticky lg:top-20">
+      <div class="ts-bezel rounded-2xl p-3.5 sm:p-4 flex flex-col gap-3">
+
+        <!-- Kojeen ylämerkintä -->
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs font-bold tracking-wider text-amber-400 mono">Acctivate v0.6 mittausohjelmisto</span>
+          </div>
+          <span id="topFaceIndicator" class="text-[11px] mono font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30">
+            I-asento
+          </span>
+        </div>
+
+        <!-- TAKYMETRIN LCD-NÄYTTÖ -->
+        <div class="ts-screen rounded-xl overflow-hidden border-2 border-slate-400 flex flex-col min-h-[485px]">
+
+          <!-- Kojeen statuspalkki -->
+          <div class="bg-slate-900 text-slate-100 px-3 py-1.5 text-[11px] mono flex flex-wrap items-center justify-between gap-2 border-b border-slate-700">
+            <div class="flex items-center gap-2">
+              <span id="statusLevelBadge" class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30 font-semibold">⚠️ Ei tasattu</span>
+              <span id="statusEdmMode" class="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30 font-semibold">IR-Prisma</span>
+              <span>c:<strong id="statusPrismConst" class="text-amber-300">-30.0</strong>mm</span>
+              <span>ppm:<strong id="statusPpm" class="text-emerald-300">0.0</strong></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span>Pisteet:<strong id="statusPtCount" class="text-amber-300">0</strong></span>
+              <span>Hav:<strong id="statusObsCount" class="text-emerald-300">0</strong></span>
+            </div>
+          </div>
+
+          <!-- Vaihevalikko (1-5) -->
+          <div class="grid grid-cols-5 bg-slate-200 border-b border-slate-300 text-[11px] font-semibold">
+            <button onclick="goToStep(1)" id="tabStep1" class="py-2 px-1 border-r border-slate-300 text-center transition truncate">
+              1. Tasaus &amp; Sää
+            </button>
+            <button onclick="goToStep(2)" id="tabStep2" class="py-2 px-1 border-r border-slate-300 text-center transition truncate">
+              2. Pisteet
+            </button>
+            <button onclick="goToStep(3)" id="tabStep3" class="py-2 px-1 border-r border-slate-300 text-center transition truncate">
+              3. Asema
+            </button>
+            <button onclick="goToStep(4)" id="tabStep4" class="py-2 px-1 border-r border-slate-300 text-center transition truncate">
+              4. Mittaus
+            </button>
+            <button onclick="goToStep(5)" id="tabStep5" class="py-2 px-1 text-center transition truncate">
+              5. Tulokset
+            </button>
+          </div>
+
+          <!-- VAIHEIDEN SISÄLTÖALUE -->
+          <div class="p-3.5 flex-1 flex flex-col justify-between overflow-y-auto">
+
+            <!-- ================= VAIHE 1: KOJEEN TASAUS & SÄÄKORJAUS ================= -->
+            <div id="viewStep1" class="space-y-2.5">
+              <!-- 1A: Sähköinen tasain ja tasausalustan 3 jalkaruuvia (A, B, C) -->
+              <div class="bg-slate-200/80 border border-slate-300 rounded-lg p-2.5">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-xs font-bold text-slate-800">1A. Kojeen tasaus (Sähköinen tasain &amp; jalkaruuvit A, B, C)</span>
+                  <span id="levelStatusText" class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300">
+                    Tasaamaton
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-12 gap-2.5 items-center">
+                  <div class="col-span-5 flex flex-col items-center">
+                    <canvas id="levelCanvas" width="136" height="136" class="w-[126px] h-[126px] rounded-xl bg-slate-900 border-2 border-slate-400 shadow-inner"></canvas>
+                    <div class="text-[10px] text-slate-600 text-center mt-1 leading-tight">
+                      Tasausalustan jalkaruuvit (120° geometria)
+                    </div>
+                  </div>
+                  <div class="col-span-7 space-y-1.5">
+                    <div class="grid grid-cols-2 gap-1 text-[11px] mono bg-white px-2 py-1 rounded border border-slate-300">
+                      <span>X: <strong id="tiltXDisplay">+0.0350</strong> gon</span>
+                      <span>Y: <strong id="tiltYDisplay">-0.0250</strong> gon</span>
+                    </div>
+
+                    <!-- Yksittäiset jalkaruuvit A, B ja C -->
+                    <div class="space-y-1 bg-slate-100 p-1.5 rounded border border-slate-300">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[10px] font-bold text-amber-800 w-14">Ruuvi C (Ylä):</span>
+                        <button onclick="turnFootScrew('C', -1)" class="flex-1 py-1 bg-slate-700 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-white rounded text-[10px] font-semibold transition">↺ Ulos (↓)</button>
+                        <button onclick="turnFootScrew('C', 1)" class="flex-1 py-1 bg-slate-700 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-white rounded text-[10px] font-semibold transition">↻ Sisään (↑)</button>
+                      </div>
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[10px] font-bold text-sky-800 w-14">Ruuvi A (Vas):</span>
+                        <button onclick="turnFootScrew('A', -1)" class="flex-1 py-1 bg-slate-700 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-white rounded text-[10px] font-semibold transition">↺ Ulos (↗)</button>
+                        <button onclick="turnFootScrew('A', 1)" class="flex-1 py-1 bg-slate-700 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-white rounded text-[10px] font-semibold transition">↻ Sisään (↙)</button>
+                      </div>
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[10px] font-bold text-emerald-800 w-14">Ruuvi B (Oik):</span>
+                        <button onclick="turnFootScrew('B', -1)" class="flex-1 py-1 bg-slate-700 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-white rounded text-[10px] font-semibold transition">↺ Ulos (↖)</button>
+                        <button onclick="turnFootScrew('B', 1)" class="flex-1 py-1 bg-slate-700 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-white rounded text-[10px] font-semibold transition">↻ Sisään (↘)</button>
+                      </div>
+                    </div>
+
+                    <!-- Kahden jalkaruuvin vastakkaiskierto A & B -->
+                    <div class="bg-amber-50/90 p-1.5 rounded border border-amber-300 space-y-1">
+                      <div class="text-[10px] font-bold text-amber-900 flex justify-between">
+                        <span>Ruuveilla A &amp; B vastakkain:</span>
+                        <span class="font-normal">Suunta X</span>
+                      </div>
+                      <div class="grid grid-cols-2 gap-1">
+                        <button onclick="turnPairedAB(-1)" class="py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[10px] font-bold transition">
+                          &larr; Kupla vas.
+                        </button>
+                        <button onclick="turnPairedAB(1)" class="py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[10px] font-bold transition">
+                          Kupla oik. &rarr;
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-[10px] text-slate-600 mt-1.5 bg-white/80 px-2 py-1 rounded border border-slate-300 leading-snug">
+                  ℹ️ <strong>Kompensaattori &amp; jalustan vakaus:</strong> Kompensaattori valvoo pystyakselin asentoa ja korjaa pienen jäännöskallistuman kulmalukemiin. Se ei kuitenkaan korjaa jalustan painumisesta aiheutuvaa korkeus-, taso- tai kiertymäsiirtymää.
+                </div>
+              </div>
+
+              <!-- 1B: Sääkorjaukset (Ilmakehäkorjaus ppm) -->
+              <div class="bg-slate-200/80 border border-slate-300 rounded-lg p-2.5 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-800">1B. Sääkorjaus (Ilmakehäkorjaus ppm)</span>
+                  <span id="weatherDirtyBadge" class="hidden text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-400">
+                    ⚠️ Kuittaa F1 / F4!
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-700 mb-0.5">Lämpötila (°C)</label>
+                    <input type="number" id="inputTemp" step="0.5" value="20.0" oninput="onWeatherInputChange()" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-slate-900 font-bold mono text-xs" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-700 mb-0.5">Ilmanpaine (hPa)</label>
+                    <input type="number" id="inputPress" step="0.5" value="1013.2" oninput="onWeatherInputChange()" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-slate-900 font-bold mono text-xs" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-700 mb-0.5">Kosteus (%)</label>
+                    <input type="number" id="inputHum" step="1" value="60" oninput="onWeatherInputChange()" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-slate-900 font-bold mono text-xs" />
+                  </div>
+                </div>
+
+                <div class="bg-slate-900 text-white rounded px-2.5 py-1.5 flex items-center justify-between mono text-xs">
+                  <span class="text-slate-400 font-sans text-[11px]">Laskettu sääkorjaus (ppm):</span>
+                  <span id="previewPpmDisplay" class="font-bold text-emerald-300">0.0 ppm (0.0 mm / 100 m)</span>
+                </div>
+              </div>
+
+              <div id="step1Feedback" class="hidden text-xs rounded-lg p-2 font-medium"></div>
+            </div>
+
+            <!-- ================= VAIHE 2: LIITOSPISTEET ================= -->
+            <div id="viewStep2" class="hidden space-y-2.5">
+              <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-900">
+                <strong>Ohje:</strong> Syötä orientoinnissa käytettävät tunnetut liitospisteet (vähintään 2, suositus 3–4 pistettä) tai tuo ne maastokortilta.
+              </div>
+
+              <!-- Uuden pisteen syöttölomake -->
+              <div class="bg-slate-200/80 border border-slate-300 rounded-lg p-2.5 space-y-2">
+                <div class="grid grid-cols-4 gap-1.5">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-700">Piste ID</label>
+                    <input type="text" id="newPtId" placeholder="101" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-xs mono font-bold text-slate-900" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-700">X / N (m)</label>
+                    <input type="number" id="newPtN" step="0.001" placeholder="6675285.420" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-xs mono text-slate-900" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-700">Y / E (m)</label>
+                    <input type="number" id="newPtE" step="0.001" placeholder="25496440.150" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-xs mono text-slate-900" />
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-700">Z / H (m)</label>
+                    <input type="number" id="newPtH" step="0.001" placeholder="44.120" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-xs mono text-slate-900" />
+                  </div>
+                </div>
+                <div class="flex justify-between gap-2">
+                  <button onclick="addManualPoint()" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold py-1.5 px-2.5 rounded transition">
+                    + Lisää liitospiste
+                  </button>
+                  <button onclick="importPointsFromFieldCard()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold py-1.5 px-2.5 rounded transition" title="Kopioi maastokortin pisteet takymetrin muistiin">
+                    📥 Tuo maastokortilta
+                  </button>
+                </div>
+                <div id="step2Feedback" class="hidden text-xs rounded-lg p-2 font-medium"></div>
+              </div>
+
+              <!-- Takymetrin muistissa olevat liitospisteet -->
+              <div class="bg-white border border-slate-300 rounded-lg overflow-hidden">
+                <div class="bg-slate-100 px-2.5 py-1 border-b border-slate-300 flex justify-between items-center text-[11px] font-bold text-slate-700">
+                  <span>Jobin muistissa olevat pisteet</span>
+                  <button onclick="clearJobPoints()" class="text-rose-600 hover:underline font-normal">Tyhjennä</button>
+                </div>
+                <div class="max-h-44 overflow-y-auto">
+                  <table class="w-full text-left border-collapse mono text-[11px]">
+                    <thead>
+                      <tr class="border-b border-slate-200 text-slate-500">
+                        <th class="py-1 px-2">ID</th>
+                        <th class="py-1 px-2">N (m)</th>
+                        <th class="py-1 px-2">E (m)</th>
+                        <th class="py-1 px-2">H (m)</th>
+                        <th class="py-1 px-1"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="jobPointsTableBody" class="divide-y divide-slate-200 text-slate-800"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= VAIHE 3: ASEMAPISTEEN TIEDOT ================= -->
+            <div id="viewStep3" class="hidden space-y-3">
+              <div class="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-900 leading-relaxed">
+                <strong>Ohje:</strong> Anna vapaalle asemapisteelle tunnus (esim. <span class="mono font-bold">ASP1</span>) ja syötä kojekorkeus <span class="mono font-bold">i</span>. Muista kuitata <strong>F1</strong> tai <strong>F4</strong>!
+              </div>
+
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Asemapisteen tunnus (ASP)</label>
+                  <input type="text" id="inputStationName" value="ASP1" oninput="markStationDirty()" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 font-bold mono text-sm uppercase" />
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-1.5">
+                      <label class="block text-xs font-bold text-slate-700">Kojekorkeus i (m)</label>
+                      <span id="stationDirtyBadge" class="hidden text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-400">
+                        ⚠️ Kuittaa F1 / F4!
+                      </span>
+                    </div>
+                    <div class="flex gap-1.5">
+                      <button onclick="setZeroInstHeight()" class="px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold transition">
+                        Aseta i = 0.000 m
+                      </button>
+                      <button onclick="useTapeInstHeight()" class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-[11px] font-semibold transition">
+                        Lue taskumitasta
+                      </button>
+                    </div>
+                  </div>
+                  <input type="number" id="inputInstHeight" step="0.001" value="1.500" oninput="markStationDirty()" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 font-bold mono text-sm" />
+                  <div class="text-[11px] text-slate-600 mt-1.5 bg-slate-200/70 p-2 rounded border border-slate-300 leading-snug">
+                    💡 <strong>Huomio vapaalla asemapisteellä:</strong> Jos asemapiste ei ole fyysinen pistemerkki maassa, kojekorkeudeksi voidaan asettaa <span class="mono font-bold">0.000 m</span> (jolloin korkeus <span class="mono">H</span> määritetään suoraan kojeen vaaka-akselille) tai käyttää taskumitalla vaaka-akselin merkkiin mitattua korkeutta (<span class="mono font-bold" id="step3TapeHint">1.640 m</span>).
+                  </div>
+                </div>
+              </div>
+
+              <div id="step3Feedback" class="hidden text-xs rounded-lg p-2.5 font-medium"></div>
+            </div>
+
+            <!-- ================= VAIHE 4: HAVAINTOJEN MITTAUS ================= -->
+            <div id="viewStep4" class="hidden space-y-2.5">
+              <!-- Varoitus tallentamattomista Vaihe 1 / 3 muutoksista -->
+              <div id="unsavedSettingsBanner" class="hidden text-xs rounded-lg p-2 bg-amber-100 border border-amber-300 text-amber-950 font-medium"></div>
+
+              <!-- 4.1 Mittaustapa, prismavakio ja tähyskorkeus -->
+              <div class="bg-slate-200/90 border border-slate-300 rounded-lg p-2.5 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-slate-700">4.1 Tähys- ja etäisyysmittarin asetukset</span>
+                  <div class="flex items-center gap-1.5">
+                    <span id="step4FaceLabel" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-900 border border-sky-300 mono">I-asento</span>
+                    <button onclick="toggleInstrumentFace()" id="step4FaceBtn" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 transition" title="Vaihda kojeasento I- ja II-asennon välillä">
+                      🔄 Vaihda kojeasento
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <!-- Tähtäyspisteen valinta -->
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Tähtäyspiste (Liitospiste)</label>
+                    <select id="measureTargetSelect" onchange="onTargetSelectChange()" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-xs font-bold mono text-slate-900">
+                    </select>
+                  </div>
+
+                  <!-- Mittaustapa -->
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Mittaustapa</label>
+                    <select id="inputEdmMode" onchange="onEdmModeChange()" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-xs font-bold text-slate-900">
+                      <option value="prism">Prismallinen (IR)</option>
+                      <option value="prism_less">Pintamittaus (DR)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <!-- Prismavakio -->
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Prismavakio (mm)</label>
+                    <div class="flex gap-1">
+                      <input type="number" id="inputPrismConst" step="0.1" value="-30.0" oninput="onManualPrismConstInput()" class="w-16 shrink-0 px-1.5 py-1 rounded border border-slate-300 bg-white text-xs font-bold mono text-slate-900" />
+                      <select onchange="setQuickPrismConst(this.value)" id="quickConstSelect" class="w-full px-1 py-1 rounded border border-slate-300 bg-slate-200 text-[10px] font-semibold text-slate-800" title="Esiasetukset">
+                        <option value="-30.0">-30.0 (Pyörö)</option>
+                        <option value="-17.5">-17.5 (Mini)</option>
+                        <option value="-11.3">-11.3 (360°)</option>
+                        <option value="0.0">0.0 (Heij.tarra / Tarra)</option>
+                        <option value="custom">Muu arvo</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Tähyskorkeus m -->
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Tähyskorkeus m (m)</label>
+                    <input type="number" id="inputTargetHeight" step="0.001" value="1.500" oninput="updateStatusHeader()" class="w-full px-2 py-1 rounded border border-slate-300 bg-white text-xs font-bold mono text-slate-900" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Reaaliaikainen lukema & viimeisin mittaus -->
+              <div class="bg-slate-900 text-white rounded-lg p-2.5 mono text-xs grid grid-cols-4 gap-1.5 text-center">
+                <div class="bg-slate-800/90 rounded p-1.5">
+                  <div class="text-[10px] text-slate-400">Vaakasuunta</div>
+                  <div id="liveHzDisplay" class="font-bold text-amber-300">100.0000 gon</div>
+                </div>
+                <div class="bg-slate-800/90 rounded p-1.5">
+                  <div class="text-[10px] text-slate-400">Pystykulma z</div>
+                  <div id="liveVDisplay" class="font-bold text-amber-300">100.0000 gon</div>
+                </div>
+                <div class="bg-slate-800/90 rounded p-1.5">
+                  <div class="text-[10px] text-slate-400">Vaakamatka s</div>
+                  <div id="lastMeasuredHD" class="font-bold text-emerald-300">---.--- m</div>
+                </div>
+                <div class="bg-slate-800/90 rounded p-1.5">
+                  <div class="text-[10px] text-slate-400">Vinomatka v</div>
+                  <div id="lastMeasuredSD" class="font-bold text-sky-300">---.--- m</div>
+                </div>
+              </div>
+
+              <!-- Viestilaatikko mittaukselle -->
+              <div id="measureMsgBox" class="hidden text-xs rounded-lg p-2 font-medium"></div>
+
+              <!-- Mitatut havainnot -taulukko -->
+              <div class="bg-white border border-slate-300 rounded-lg overflow-hidden">
+                <div class="bg-slate-100 px-2.5 py-1 border-b border-slate-300 flex justify-between items-center text-[11px] font-bold text-slate-700">
+                  <span>Tallennetut orientointihavainnot</span>
+                  <span id="obsReadyBadge" class="text-[10px] font-semibold text-slate-500">Tarvitaan väh. 2 pistettä</span>
+                </div>
+                <div class="max-h-36 overflow-y-auto">
+                  <table class="w-full text-left border-collapse mono text-[11px]">
+                    <thead>
+                      <tr class="border-b border-slate-200 text-slate-500">
+                        <th class="py-1 px-1.5">Tp</th>
+                        <th class="py-1 px-1">Asento</th>
+                        <th class="py-1 px-1.5">Suunta (gon)</th>
+                        <th class="py-1 px-1.5">s (m)</th>
+                        <th class="py-1 px-1.5">c / m</th>
+                        <th class="py-1 px-1"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="observationsTableBody" class="divide-y divide-slate-200 text-slate-800"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= VAIHE 5: TULOKSET & VIRHEET ================= -->
+            <div id="viewStep5" class="hidden space-y-2.5">
+              <!-- Laatupalkki -->
+              <div id="calcStatusBanner" class="rounded-lg p-2 text-xs font-bold flex items-center justify-between border">
+                <span id="calcStatusTitle">Odottaa tasoituslaskentaa...</span>
+                <span id="calcStdDevBadge" class="mono text-[11px] px-2 py-0.5 rounded bg-white/80 text-slate-900"></span>
+              </div>
+
+              <!-- Lasketut asemapisteen koordinaatit ja orientointi -->
+              <div class="bg-slate-900 text-white rounded-lg p-2.5 mono text-xs space-y-1.5">
+                <div class="flex justify-between items-center text-[11px] text-slate-400 border-b border-slate-800 pb-1">
+                  <span>ASEMAPISTE: <strong id="resStnName" class="text-amber-300">ASP1</strong></span>
+                  <span>Kiertymä t₀: <strong id="resZ0" class="text-sky-300">---.---- gon</strong></span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 pt-0.5">
+                  <div>
+                    <div class="text-[10px] text-slate-400">X / N (m)</div>
+                    <div id="resN" class="font-bold text-emerald-300 text-xs">---.---</div>
+                    <div id="errN" class="text-[10px] text-slate-400"></div>
+                  </div>
+                  <div>
+                    <div class="text-[10px] text-slate-400">Y / E (m)</div>
+                    <div id="resE" class="font-bold text-emerald-300 text-xs">---.---</div>
+                    <div id="errE" class="text-[10px] text-slate-400"></div>
+                  </div>
+                  <div>
+                    <div class="text-[10px] text-slate-400">H (m)</div>
+                    <div id="resH" class="font-bold text-emerald-300 text-xs">---.---</div>
+                    <div id="errH" class="text-[10px] text-slate-400"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pisteittäiset jäännösvirheet (Residuals) -->
+              <div class="bg-white border border-slate-300 rounded-lg overflow-hidden">
+                <div class="bg-slate-100 px-2.5 py-1 border-b border-slate-300 flex justify-between items-center text-[11px] font-bold text-slate-700">
+                  <span>Jäännösvirheet liitospisteillä (Ruksaa mukaan/pois)</span>
+                  <span class="text-[10px] text-slate-500 font-normal">Ohjeellinen raja ≤ ±5 mm</span>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left border-collapse mono text-[11px]">
+                    <thead>
+                      <tr class="border-b border-slate-200 text-slate-500">
+                        <th class="py-1 px-1">Käytä</th>
+                        <th class="py-1 px-1">Tp</th>
+                        <th class="py-1 px-1">KA</th>
+                        <th class="py-1 px-1">v_s (mm)</th>
+                        <th class="py-1 px-1">v_suunta (mgon)</th>
+                        <th class="py-1 px-1">vN/vE (mm)</th>
+                        <th class="py-1 px-1">vH (mm)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="residualsTableBody" class="divide-y divide-slate-200 text-slate-800"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Pedagoginen diagnoosi / Virheanalyysi (portaittainen) -->
+              <div id="diagnosticBox" class="rounded-lg p-2.5 text-xs border space-y-1"></div>
+            </div>
+
+          </div>
+
+          <!-- Kojeen alareunan F1-F4 toimintopainikkeiden selitteet näytöllä -->
+          <div class="grid grid-cols-4 bg-slate-900 text-amber-300 text-[11px] font-bold mono border-t border-slate-700">
+            <div id="lblF1" class="py-1.5 px-1 text-center border-r border-slate-800 truncate">F1: ASETA PPM</div>
+            <div id="lblF2" class="py-1.5 px-1 text-center border-r border-slate-800 truncate">F2: SEKOITA KUPLA</div>
+            <div id="lblF3" class="py-1.5 px-1 text-center border-r border-slate-800 truncate">F3: -</div>
+            <div id="lblF4" class="py-1.5 px-1 text-center truncate">F4: SEURAAVA &gt;</div>
+          </div>
+        </div>
+
+        <!-- FYYSISENÄPPÄIMISTÖ (F1 - F4) -->
+        <div class="grid grid-cols-4 gap-2">
+          <button onclick="pressSoftkey(1)" id="btnF1" class="ts-softkey text-white font-bold py-2 rounded-lg text-xs mono">
+            F1
+          </button>
+          <button onclick="pressSoftkey(2)" id="btnF2" class="ts-softkey text-white font-bold py-2 rounded-lg text-xs mono">
+            F2
+          </button>
+          <button onclick="pressSoftkey(3)" id="btnF3" class="ts-softkey text-white font-bold py-2 rounded-lg text-xs mono">
+            F3
+          </button>
+          <button onclick="pressSoftkey(4)" id="btnF4" class="ts-softkey text-amber-400 font-bold py-2 rounded-lg text-xs mono">
+            F4
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TIETOJA-MODAALI -->
+  <div id="aboutModal" class="modal-backdrop hidden" onclick="if (event.target === this) closeAboutModal()">
+    <div class="modal-card">
+      <div class="flex items-center justify-between px-3.5 py-2.5 bg-slate-950/90 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="text-amber-400">ℹ️</span>
+          <h2 class="text-sm font-bold text-white">Tietoja sovelluksesta</h2>
+        </div>
+        <button onclick="closeAboutModal()" class="text-slate-400 hover:text-white text-lg font-bold px-1.5" aria-label="Sulje">×</button>
+      </div>
+      <div class="p-3.5 space-y-2.5 text-xs text-slate-200">
+        <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-3 space-y-1.5">
+          <div class="text-sm font-bold text-amber-300 flex items-center justify-between">
+            <span>Orientointipeli v0.6</span>
+            <span class="text-[10px] mono text-slate-400 font-normal">Acctivate v0.6</span>
+          </div>
+          <div class="text-slate-300">Toteutettu tekoälyavusteisesti</div>
+          <div class="pt-1 border-t border-slate-800/80 space-y-1 mono text-[11px]">
+            <div>
+              <span class="text-slate-400 font-sans">Yhteystiedot: </span>
+              <a href="mailto:janne.matilainen@lapinamk.fi" class="text-sky-300 hover:underline">janne.matilainen@lapinamk.fi</a>
+            </div>
+            <div>
+              <span class="text-slate-400 font-sans">Lisenssi: </span>
+              <span class="text-emerald-300 font-semibold">CC-BY-NC 4.0</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end pt-1">
+          <button onclick="closeAboutModal()" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition">
+            Sulje
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /***********************************************************************
+     * 1. MATEMAATTISET VAKIOT JA GEODEETTISET APUFUNKTIOT (GON / ETRS-GK)
+     ***********************************************************************/
+    const GON_TO_RAD = Math.PI / 200;
+    const RAD_TO_GON = 200 / Math.PI;
+
+    function normGon(g) {
+      let res = g % 400;
+      if (res < 0) res += 400;
+      return res;
+    }
+
+    function signedGonDiff(a, b) {
+      let diff = (a - b) % 400;
+      if (diff > 200) diff -= 400;
+      if (diff < -200) diff += 400;
+      return diff;
+    }
+
+    function calcBearingGon(n1, e1, n2, e2) {
+      const dN = n2 - n1;
+      const dE = e2 - e1;
+      return normGon(Math.atan2(dE, dN) * RAD_TO_GON);
+    }
+
+    // Ilmakehän sääkorjaus (ppm) lämpötilan (°C), ilmanpaineen (hPa) ja kosteuden (%) perusteella
+    function calculateAtmosphericPpm(tempC, pressHpa, humPct = 60) {
+      const T = tempC + 273.15;
+      const e = (humPct / 100) * 6.11 * Math.exp((17.27 * tempC) / (tempC + 237.3));
+      const ppm = 281.8 - ((0.29065 * pressHpa) / (1 + 0.003661 * tempC) - (0.04126 * e) / (1 + 0.003661 * tempC));
+      return Math.round(ppm * 10) / 10;
+    }
+
+    /***********************************************************************
+     * 2. ÄÄNIMERKIT (WEB AUDIO API)
+     ***********************************************************************/
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function playBeep(freq = 1000, duration = 0.06, type = "sine") {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (err) {
+        // Äänimerkki ohitetaan, jos selain estää sen
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById("soundBtn");
+      btn.textContent = soundEnabled ? "🔊 Äänet" : "🔇 Äänet pois";
+      btn.className = soundEnabled
+        ? "text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-400 px-2.5 py-1.5 rounded-lg transition"
+        : "text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 px-2.5 py-1.5 rounded-lg transition";
+    }
+
+    /***********************************************************************
+     * 3. HARJOITUSSKENAARIOT (MAASTO JA LÄHTÖTIEDOT)
+     ***********************************************************************/
+    const SCENARIOS = [
+      {
+        id: 0,
+        idName: "basic",
+        tag: "Skenaario 1: Perusharjoitus",
+        description: "Selkeä kevätpäivä (+15.0 °C, 1013.2 hPa). Maastossa on kaksi kolmijalalle pystytettyä prismasarjaa (-30.0 mm), yksi 360°-prisma kartoitussauvalla (-11.3 mm) sekä yksi heijastintarra seinässä (0.0 mm). Huomioi, että heijastintarraan käytettäessä Autolock (ATR) voi lukittua hieman sivuun – tarkista kohdistus kaukoputkella!",
+        weather: { temp: 15.0, press: 1013.2, hum: 60 },
+        axisErrors: { collimationGon: 0.0008, vIndexGon: 0.0010 },
+        trueStation: {
+          suggestedName: "ASP1",
+          N: 6675200.000,
+          E: 25496500.000,
+          H: 44.140,
+          instHeight: 1.640,
+          trueZ0: 34.2500
+        },
+        controlPoints: [
+          {
+            id: "101",
+            N: 6675285.420,
+            E: 25496440.150,
+            H: 44.120,
+            prismType: "Prismasarja (-30.0 mm)",
+            trueConst: -30.0,
+            trueTargetH: 1.450,
+            mountType: "tripod",
+            targetKind: "prism",
+            locationHint: "Luode (kolmijalka)"
+          },
+          {
+            id: "102",
+            N: 6675290.100,
+            E: 25496585.300,
+            H: 45.280,
+            prismType: "Prismasarja (-30.0 mm)",
+            trueConst: -30.0,
+            trueTargetH: 1.680,
+            mountType: "tripod",
+            targetKind: "prism",
+            locationHint: "Koillinen (kolmijalka)"
+          },
+          {
+            id: "103",
+            N: 6675115.600,
+            E: 25496595.800,
+            H: 43.450,
+            prismType: "360°-prisma (-11.3 mm)",
+            trueConst: -11.3,
+            trueTargetH: 1.800,
+            mountType: "pole",
+            targetKind: "prism",
+            locationHint: "Kaakko (kartoitussauva)"
+          },
+          {
+            id: "104",
+            N: 6675120.850,
+            E: 25496410.400,
+            H: 44.910,
+            prismType: "Heijastintarra (0.0 mm)",
+            trueConst: 0.0,
+            trueTargetH: 0.000,
+            mountType: "wall",
+            targetKind: "reflective_tape",
+            locationHint: "Lounas (heijastintarra seinässä)"
+          }
+        ],
+        distractor: null
+      },
+      {
+        id: 1,
+        idName: "winter",
+        tag: "Skenaario 2: Pakkanen & eri tähykset",
+        description: "Kireä talvipakkanen (-18.0 °C, 1036.0 hPa). Maastossa on prismasarja (-30.0 mm), 360°-prisma (-11.3 mm), heijastintarra (0.0 mm) sekä heijastimeton tarra (0.0 mm, vain Pintamittaus DR). Huomio: Talvella kolmijalat eivät välttämättä pysy lumen ja jään päällä tasattuina kovin kauaa – seuraa kompensaattorin tilaa ja huomioi jalustan painumisen vaikutus jo mitattuihin havaintoihin!",
+        weather: { temp: -18.0, press: 1036.0, hum: 75 },
+        axisErrors: { collimationGon: 0.0007, vIndexGon: 0.0009 },
+        trueStation: {
+          suggestedName: "ASP2",
+          N: 6675400.000,
+          E: 25496800.000,
+          H: 52.350,
+          instHeight: 1.585,
+          trueZ0: 112.4000
+        },
+        controlPoints: [
+          {
+            id: "201",
+            N: 6675540.200,
+            E: 25496710.500,
+            H: 53.100,
+            prismType: "Prismasarja (-30.0 mm)",
+            trueConst: -30.0,
+            trueTargetH: 1.550,
+            mountType: "tripod",
+            targetKind: "prism",
+            locationHint: "Luode (kolmijalka)"
+          },
+          {
+            id: "202",
+            N: 6675510.800,
+            E: 25496920.100,
+            H: 51.850,
+            prismType: "360°-prisma (-11.3 mm)",
+            trueConst: -11.3,
+            trueTargetH: 1.750,
+            mountType: "pole",
+            targetKind: "prism",
+            locationHint: "Koillinen (kartoitussauva)"
+          },
+          {
+            id: "203",
+            N: 6675275.400,
+            E: 25496915.600,
+            H: 52.900,
+            prismType: "Heijastintarra (0.0 mm)",
+            trueConst: 0.0,
+            trueTargetH: 0.000,
+            mountType: "wall",
+            targetKind: "reflective_tape",
+            locationHint: "Kaakko (heijastintarra seinässä)"
+          },
+          {
+            id: "204",
+            N: 6675290.100,
+            E: 25496685.200,
+            H: 54.050,
+            prismType: "Tarra seinässä (0.0 mm, DR)",
+            trueConst: 0.0,
+            trueTargetH: 0.000,
+            mountType: "wall",
+            targetKind: "plain_tape",
+            locationHint: "Lounas (heijastimeton tarra, DR)"
+          }
+        ],
+        distractor: null
+      },
+      {
+        id: 2,
+        idName: "outlier",
+        tag: "Skenaario 3: Vikapähkinä",
+        description: "Kesäpäivä (+22.0 °C, 998.0 hPa). Työmaan kaivinkone on kolhaissut yhtä neljästä kiintopisteestä maastossa. Mittaa kaikki neljä pistettä, paikanna jäännösvirheistä liikkunut piste ja poista se tasoituksesta. Varo myös pisteen 302 lähellä olevaa heijastavaa liikennemerkkiä Autolockia käyttäessäsi!",
+        weather: { temp: 22.0, press: 998.0, hum: 45 },
+        axisErrors: { collimationGon: 0.0008, vIndexGon: 0.0008 },
+        trueStation: {
+          suggestedName: "ASP3",
+          N: 6675100.000,
+          E: 25496200.000,
+          H: 38.720,
+          instHeight: 1.610,
+          trueZ0: 245.8000
+        },
+        controlPoints: [
+          {
+            id: "301",
+            N: 6675215.300,
+            E: 25496130.400,
+            H: 39.200,
+            prismType: "Prismasarja (-30.0 mm)",
+            trueConst: -30.0,
+            trueTargetH: 1.600,
+            mountType: "tripod",
+            targetKind: "prism",
+            locationHint: "Luode (kolmijalka)"
+          },
+          {
+            id: "302",
+            N: 6675205.800,
+            E: 25496310.700,
+            H: 38.150,
+            prismType: "360°-prisma (-11.3 mm)",
+            trueConst: -11.3,
+            trueTargetH: 1.700,
+            mountType: "pole",
+            targetKind: "prism",
+            locationHint: "Koillinen (kartoitussauva)"
+          },
+          {
+            id: "303",
+            N: 6674990.500,
+            E: 25496295.200,
+            H: 39.800,
+            prismType: "Prismasarja (-30.0 mm)",
+            trueConst: -30.0,
+            trueTargetH: 1.450,
+            mountType: "tripod",
+            targetKind: "prism",
+            disturbed: true,
+            physicalOffsetN: 0.042,
+            physicalOffsetE: -0.036,
+            physicalOffsetH: 0.018,
+            locationHint: "Kaakko (kolmijalka)"
+          },
+          {
+            id: "304",
+            N: 6675010.200,
+            E: 25496090.600,
+            H: 38.450,
+            prismType: "Miniprisma (-17.5 mm)",
+            trueConst: -17.5,
+            trueTargetH: 1.620,
+            mountType: "pole",
+            targetKind: "prism",
+            locationHint: "Lounas (kartoitussauva)"
+          }
+        ],
+        distractor: {
+          nearPointId: "302",
+          dHzGon: 0.075,
+          dVGon: -0.025,
+          label: "Heijastava liikennemerkki"
+        }
+      }
+    ];
+
+    /***********************************************************************
+     * 4. SOVELLUKSEN TILA (STATE)
+     ***********************************************************************/
+    let currentScenarioIndex = 0;
+    let currentStep = 1;
+    let trueTargetsGeometry = [];
+    let measureTimers = [];
+    let lastInspectorSignature = "";
+
+    let tsState = {
+      face: 1, // 1 = I-asento, 2 = II-asento
+      tiltX: 0.0350,
+      tiltY: -0.0250,
+      isLeveled: false,
+      winterSettlementTriggered: false,
+
+      temp: 20.0,
+      press: 1013.2,
+      hum: 60,
+      ppm: 0.0,
+      weatherDirty: false,
+
+      jobPoints: [],
+      stationName: "ASP1",
+      instHeight: 1.500,
+      stationDirty: false,
+
+      selectedTargetId: "",
+      edmMode: "prism",
+      prismConst: -30.0,
+      targetHeight: 1.500,
+
+      lastMeasurement: null,
+      observations: [],
+      stationCalculated: false,
+      stationAccepted: false,
+      showDetailedHints: false,
+
+      scopeHz: 65.0000,
+      scopeV: 99.5000,
+      zoom: 1,
+      atrLockedOn: null,
+      isMeasuring: false,
+
+      faceAnim: {
+        active: false,
+        startTime: 0,
+        duration: 1300,
+        fromFace: 1,
+        toFace: 2,
+        startScopeHz: 0,
+        startScopeV: 100,
+        startEffHz: 0,
+        startEffV: 100,
+        targetEffHz: 0,
+        targetEffV: 100,
+        progress: 0,
+        phase: 1,
+        renderEffHz: 0,
+        renderEffV: 100,
+        mapBeamScale: 1
+      }
+    };
+
+    function openAboutModal() {
+      const modal = document.getElementById("aboutModal");
+      if (modal) modal.classList.remove("hidden");
+    }
+
+    function closeAboutModal() {
+      const modal = document.getElementById("aboutModal");
+      if (modal) modal.classList.add("hidden");
+    }
+
+    function clearMeasureTimers() {
+      while (measureTimers.length > 0) {
+        clearTimeout(measureTimers.pop());
+      }
+      tsState.isMeasuring = false;
+      ["btnF1", "btnF2", "btnF3", "btnF4"].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = false;
+      });
+    }
+
+    function invalidateLastMeasurement() {
+      tsState.lastMeasurement = null;
+      const hdEl = document.getElementById("lastMeasuredHD");
+      const sdEl = document.getElementById("lastMeasuredSD");
+      if (hdEl) hdEl.textContent = "---.--- m";
+      if (sdEl) sdEl.textContent = "---.--- m";
+    }
+
+    /***********************************************************************
+     * 5. GEOMETRIAN ALUSTUS JA SKENAARION VAIHTO
+     ***********************************************************************/
+    function computeTrueGeometry() {
+      const scen = SCENARIOS[currentScenarioIndex];
+      const stn = scen.trueStation;
+      const instAxisH = stn.H + stn.instHeight;
+
+      trueTargetsGeometry = scen.controlPoints.map(pt => {
+        const physN = pt.N + (pt.physicalOffsetN || 0);
+        const physE = pt.E + (pt.physicalOffsetE || 0);
+        const physGroundH = pt.H + (pt.physicalOffsetH || 0);
+        const physPrismH = physGroundH + pt.trueTargetH;
+
+        const dN = physN - stn.N;
+        const dE = physE - stn.E;
+        const trueHD = Math.hypot(dN, dE);
+        const dH = physPrismH - instAxisH;
+        const trueSD = Math.hypot(trueHD, dH);
+
+        const bearingGon = calcBearingGon(stn.N, stn.E, physN, physE);
+        const trueHz = normGon(bearingGon - stn.trueZ0);
+        const zenithRad = Math.atan2(trueHD, dH);
+        const trueV = zenithRad * RAD_TO_GON;
+
+        const groundV = Math.atan2(trueHD, physGroundH - instAxisH) * RAD_TO_GON;
+
+        return {
+          ...pt,
+          trueN: physN,
+          trueE: physE,
+          trueH: physGroundH,
+          trueHD,
+          trueSD,
+          bearingGon,
+          trueHz,
+          trueV,
+          groundV
+        };
+      });
+    }
+
+    function getEffectiveAimHz() {
+      return tsState.face === 1 ? tsState.scopeHz : normGon(tsState.scopeHz + 200.0);
+    }
+
+    function getEffectiveAimV() {
+      return tsState.face === 1 ? tsState.scopeV : (400.0 - tsState.scopeV);
+    }
+
+    function setScopeFromEffectiveAim(effHz, effV) {
+      if (tsState.face === 1) {
+        tsState.scopeHz = normGon(effHz);
+        tsState.scopeV = effV;
+      } else {
+        tsState.scopeHz = normGon(effHz + 200.0);
+        tsState.scopeV = 400.0 - effV;
+      }
+    }
+
+    function getTerrainHorizonV(hzGon) {
+      let baseV = 100.35 + 0.12 * Math.sin(hzGon * GON_TO_RAD * 3);
+      for (const tgt of trueTargetsGeometry) {
+        const diff = Math.abs(signedGonDiff(hzGon, tgt.trueHz));
+        if (diff < 12.0) {
+          const weight = 0.5 * (1 + Math.cos((diff / 12.0) * Math.PI));
+          baseV = baseV * (1 - weight) + tgt.groundV * weight;
+        }
+      }
+      return baseV;
+    }
+
+    function getDistractorGeometry() {
+      const scen = SCENARIOS[currentScenarioIndex];
+      if (!scen.distractor) return null;
+      const baseTgt = trueTargetsGeometry.find(t => t.id === scen.distractor.nearPointId);
+      if (!baseTgt) return null;
+      const distHz = normGon(baseTgt.trueHz + scen.distractor.dHzGon);
+      const distV = baseTgt.trueV + scen.distractor.dVGon;
+      const effHz = getEffectiveAimHz();
+      const effV = getEffectiveAimV();
+      const dHz = signedGonDiff(distHz, effHz);
+      const dV = distV - effV;
+      return {
+        label: scen.distractor.label,
+        nearPointId: scen.distractor.nearPointId,
+        trueHz: distHz,
+        trueV: distV,
+        groundV: baseTgt.groundV,
+        dHz,
+        dV,
+        angDist: Math.hypot(dHz, dV)
+      };
+    }
+
+    function getAimedTarget() {
+      const effHz = getEffectiveAimHz();
+      const effV = getEffectiveAimV();
+      let best = null;
+      let minAngDist = Infinity;
+
+      for (const tgt of trueTargetsGeometry) {
+        const dHz = signedGonDiff(tgt.trueHz, effHz);
+        const dV = tgt.trueV - effV;
+        const angDist = Math.hypot(dHz, dV);
+        if (angDist < minAngDist) {
+          minAngDist = angDist;
+          best = { tgt, dHz, dV, angDist };
+        }
+      }
+      return best;
+    }
+
+    function changeScenario(val) {
+      currentScenarioIndex = parseInt(val, 10) || 0;
+      resetCurrentScenario();
+    }
+
+    function resetCurrentScenario() {
+      clearMeasureTimers();
+      computeTrueGeometry();
+      const scen = SCENARIOS[currentScenarioIndex];
+      const initAngle = Math.random() * Math.PI * 2;
+      const initMag = 0.026 + Math.random() * 0.015;
+
+      tsState = {
+        face: 1,
+        tiltX: Math.round(Math.cos(initAngle) * initMag * 10000) / 10000,
+        tiltY: Math.round(Math.sin(initAngle) * initMag * 10000) / 10000,
+        isLeveled: false,
+        winterSettlementTriggered: false,
+
+        temp: 20.0,
+        press: 1013.2,
+        hum: 60,
+        ppm: 0.0,
+        weatherDirty: false,
+
+        jobPoints: [],
+        stationName: scen.trueStation.suggestedName,
+        instHeight: 1.500,
+        stationDirty: false,
+
+        selectedTargetId: "",
+        edmMode: "prism",
+        prismConst: -30.0,
+        targetHeight: 1.500,
+
+        lastMeasurement: null,
+        observations: [],
+        stationCalculated: false,
+        stationAccepted: false,
+        showDetailedHints: false,
+
+        scopeHz: normGon(trueTargetsGeometry[0].trueHz + 0.19),
+        scopeV: trueTargetsGeometry[0].trueV - 0.07,
+        zoom: 1,
+        atrLockedOn: null,
+        isMeasuring: false,
+
+        faceAnim: {
+          active: false,
+          startTime: 0,
+          duration: 1300,
+          fromFace: 1,
+          toFace: 2,
+          startScopeHz: 0,
+          startScopeV: 100,
+          startEffHz: 0,
+          startEffV: 100,
+          targetEffHz: 0,
+          targetEffV: 100,
+          progress: 0,
+          phase: 1,
+          renderEffHz: 0,
+          renderEffV: 100,
+          mapBeamScale: 1
+        }
+      };
+
+      lastInspectorSignature = "";
+      renderFieldCard();
+      updateFaceUI();
+      setZoom(1);
+
+      document.getElementById("inputTemp").value = "20.0";
+      document.getElementById("inputPress").value = "1013.2";
+      document.getElementById("inputHum").value = "60";
+      onWeatherInputChange(true);
+
+      document.getElementById("inputStationName").value = scen.trueStation.suggestedName;
+      document.getElementById("inputInstHeight").value = "1.500";
+      document.getElementById("step3TapeHint").textContent = `${scen.trueStation.instHeight.toFixed(3)} m`;
+      document.getElementById("stationDirtyBadge").classList.add("hidden");
+
+      document.getElementById("inputEdmMode").value = "prism";
+      document.getElementById("inputPrismConst").value = "-30.0";
+      document.getElementById("quickConstSelect").value = "-30.0";
+      document.getElementById("inputTargetHeight").value = "1.500";
+      document.getElementById("lastMeasuredHD").textContent = "---.--- m";
+      document.getElementById("lastMeasuredSD").textContent = "---.--- m";
+
+      ["step1Feedback", "step2Feedback", "step3Feedback", "measureMsgBox", "unsavedSettingsBanner"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add("hidden");
+      });
+
+      renderJobPointsTable();
+      populateMeasureTargetSelect();
+      renderObservationsTable();
+      updateLevelUI();
+      updateStatusHeader();
+      goToStep(1);
+    }
+
+    function renderFieldCard() {
+      const scen = SCENARIOS[currentScenarioIndex];
+      document.getElementById("scenarioTag").textContent = scen.tag;
+      document.getElementById("scenarioDescription").textContent = scen.description;
+
+      const tSign = scen.weather.temp >= 0 ? "+" : "";
+      document.getElementById("trueTempDisplay").textContent = `${tSign}${scen.weather.temp.toFixed(1)} °C`;
+      document.getElementById("truePressDisplay").textContent = `${scen.weather.press.toFixed(1)} hPa`;
+      document.getElementById("trueHumDisplay").textContent = `${scen.weather.hum} %`;
+      document.getElementById("trueInstHeightDisplay").textContent = scen.trueStation.instHeight.toFixed(3);
+      document.getElementById("suggestedStnName").textContent = scen.trueStation.suggestedName;
+
+      const tbody = document.getElementById("fieldCardPointsBody");
+      tbody.innerHTML = scen.controlPoints.map(pt => `
+        <tr class="hover:bg-slate-900/80">
+          <td class="py-1 pr-2 font-bold text-amber-300">${pt.id}</td>
+          <td class="py-1 px-2">${pt.N.toFixed(3)}</td>
+          <td class="py-1 px-2">${pt.E.toFixed(3)}</td>
+          <td class="py-1 px-2">${pt.H.toFixed(3)}</td>
+          <td class="py-1 pl-2 font-sans text-slate-300">${pt.locationHint}</td>
+        </tr>
+      `).join("");
+    }
+
+    function toggleFieldCard() {
+      const content = document.getElementById("fieldCardContent");
+      content.classList.toggle("hidden");
+    }
+
+    /***********************************************************************
+     * 6. KOJEASENNON VAIHTO (I-ASENTO <-> II-ASENTO) JA ANIMAATIO
+     * Pasi Laurila (2012, s. 244–246): Kojeasentoa vaihdettaessa kaukoputki
+     * käännetään vaaka-akselin ympäri ja alhidadia käännetään oikokulma (200 gon).
+     ***********************************************************************/
+    function toggleInstrumentFace() {
+      if (tsState.isMeasuring || (tsState.faceAnim && tsState.faceAnim.active)) return;
+      const effHz = getEffectiveAimHz();
+      const effV = getEffectiveAimV();
+      const fromFace = tsState.face;
+      const toFace = fromFace === 1 ? 2 : 1;
+
+      tsState.atrLockedOn = null;
+      invalidateLastMeasurement();
+
+      // Pieni uudelleenkohdistuspoikkeama (6–12 mgon) uuden kojeasennon lopuksi
+      const reAimHz = (Math.random() > 0.5 ? 1 : -1) * (0.006 + Math.random() * 0.006);
+      const reAimV = (Math.random() > 0.5 ? 1 : -1) * (0.004 + Math.random() * 0.005);
+
+      tsState.faceAnim = {
+        active: true,
+        startTime: performance.now(),
+        duration: 1300,
+        fromFace,
+        toFace,
+        startScopeHz: tsState.scopeHz,
+        startScopeV: tsState.scopeV,
+        startEffHz: effHz,
+        startEffV: effV,
+        targetEffHz: normGon(effHz + reAimHz),
+        targetEffV: effV + reAimV,
+        progress: 0,
+        phase: 1,
+        renderEffHz: effHz,
+        renderEffV: effV,
+        mapBeamScale: 1
+      };
+
+      playBeep(680, 0.09, "triangle");
+      setTimeout(() => playBeep(840, 0.09, "triangle"), 140);
+      setTimeout(() => playBeep(1020, 0.09, "triangle"), 580);
+
+      const toggleBtn = document.getElementById("faceToggleBtn");
+      const step4Btn = document.getElementById("step4FaceBtn");
+      if (toggleBtn) {
+        toggleBtn.disabled = true;
+        toggleBtn.textContent = "🔄 Käännetään...";
+      }
+      if (step4Btn) step4Btn.disabled = true;
+    }
+
+    function updateFaceAnimation() {
+      const anim = tsState.faceAnim;
+      if (!anim || !anim.active) return;
+
+      const elapsed = performance.now() - anim.startTime;
+      const t = Math.min(1, elapsed / anim.duration);
+      anim.progress = t;
+
+      const easeInOut = (u) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
+      const split = 0.44; // 0..0.44: kaukoputken kääntö vaaka-akselin ympäri, 0.44..1: alhidadin 200 gon kääntö
+
+      if (t < split) {
+        anim.phase = 1;
+        const u = easeInOut(t / split);
+        const targetVUnwrapped = anim.fromFace === 1 ? -anim.startScopeV : (400.0 + (400.0 - anim.startScopeV));
+        const currVUnwrapped = anim.startScopeV + (targetVUnwrapped - anim.startScopeV) * u;
+        tsState.scopeV = normGon(currVUnwrapped);
+        tsState.scopeHz = anim.startScopeHz;
+
+        if (u < 0.5) {
+          const p = u / 0.5;
+          anim.renderEffHz = anim.startEffHz;
+          anim.renderEffV = anim.startEffV * (1 - p);
+          anim.mapBeamScale = Math.max(0.08, 1 - p);
+        } else {
+          const p = (u - 0.5) / 0.5;
+          anim.renderEffHz = normGon(anim.startEffHz + 200);
+          anim.renderEffV = anim.startEffV * p;
+          anim.mapBeamScale = Math.max(0.08, p);
+        }
+      } else {
+        anim.phase = 2;
+        const u = easeInOut((t - split) / (1 - split));
+        const targetScopeV = anim.toFace === 1 ? anim.targetEffV : (400.0 - anim.targetEffV);
+        const targetScopeHz = anim.toFace === 1 ? anim.targetEffHz : normGon(anim.targetEffHz + 200);
+
+        const deltaHzTotal = 200 + signedGonDiff(normGon(targetScopeHz - 200), anim.startScopeHz);
+        tsState.scopeHz = normGon(anim.startScopeHz + deltaHzTotal * u);
+        tsState.scopeV = targetScopeV;
+
+        anim.renderEffHz = normGon(anim.startEffHz + 200 + (200 + signedGonDiff(anim.targetEffHz, anim.startEffHz)) * u);
+        anim.renderEffV = anim.startEffV + (anim.targetEffV - anim.startEffV) * u;
+        anim.mapBeamScale = 1;
+      }
+
+      if (t >= 1) {
+        anim.active = false;
+        tsState.face = anim.toFace;
+        setScopeFromEffectiveAim(anim.targetEffHz, anim.targetEffV);
+
+        const toggleBtn = document.getElementById("faceToggleBtn");
+        const step4Btn = document.getElementById("step4FaceBtn");
+        if (toggleBtn) toggleBtn.disabled = false;
+        if (step4Btn) step4Btn.disabled = false;
+
+        playBeep(1350, 0.07);
+        setTimeout(() => playBeep(1650, 0.08), 80);
+        updateFaceUI();
+
+        const msgBox = document.getElementById("measureMsgBox");
+        if (msgBox && currentStep === 4) {
+          const faceText = tsState.face === 1 ? "I-asento" : "II-asento";
+          msgBox.classList.remove("hidden");
+          msgBox.className = "text-xs rounded-lg p-2 bg-sky-100 border border-sky-300 text-sky-900 font-medium";
+          msgBox.innerHTML = `🔄 <strong>Kojeasento vaihdettu (${faceText}):</strong> Kaukoputki käännettiin vaaka-akselin ympäri ja alhidadia käännettiin 200 gon. Kohdista viivaristikko uudelleen tähykseen ennen havainnon ottamista.`;
+        }
+      }
+    }
+
+    function updateFaceUI() {
+      const isF1 = tsState.face === 1;
+      const toggleBtn = document.getElementById("faceToggleBtn");
+      const hudBadge = document.getElementById("hudFaceBadge");
+      const topInd = document.getElementById("topFaceIndicator");
+      const step4Lbl = document.getElementById("step4FaceLabel");
+      const step4Btn = document.getElementById("step4FaceBtn");
+
+      if (toggleBtn && !(tsState.faceAnim && tsState.faceAnim.active)) {
+        toggleBtn.disabled = false;
+        toggleBtn.innerHTML = isF1 ? "🔄 Vaihda II-asentoon" : "🔄 Vaihda I-asentoon";
+        toggleBtn.className = isF1
+          ? "px-2.5 py-1 rounded text-xs font-bold bg-sky-500/20 hover:bg-sky-900 text-sky-300 border border-sky-400/30 transition"
+          : "px-2.5 py-1 rounded text-xs font-bold bg-orange-500/20 hover:bg-orange-500 text-orange-300 border border-orange-400/40 transition";
+      }
+      if (step4Btn && !(tsState.faceAnim && tsState.faceAnim.active)) {
+        step4Btn.disabled = false;
+      }
+      if (hudBadge) {
+        hudBadge.textContent = isF1 ? "I-asento" : "II-asento";
+        hudBadge.className = isF1
+          ? "px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30"
+          : "px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-400/40";
+      }
+      if (topInd) {
+        topInd.textContent = isF1 ? "I-asento" : "II-asento";
+        topInd.className = isF1
+          ? "text-[11px] mono font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30"
+          : "text-[11px] mono font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-400/40";
+      }
+      if (step4Lbl) {
+        step4Lbl.textContent = isF1 ? "I-asento" : "II-asento";
+        step4Lbl.className = isF1
+          ? "text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-900 border border-sky-300 mono"
+          : "text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-400 mono";
+      }
+      lastInspectorSignature = "";
+    }
+
+    /***********************************************************************
+     * 7. VAIHEIDEN NAVIGOINTI JA F1-F4-PAINIKKEET
+     ***********************************************************************/
+    function goToStep(step) {
+      if (tsState.isMeasuring) return;
+      currentStep = step;
+      for (let i = 1; i <= 5; i++) {
+        const view = document.getElementById(`viewStep${i}`);
+        const tab = document.getElementById(`tabStep${i}`);
+        if (i === step) {
+          view.classList.remove("hidden");
+          tab.className = "py-2 px-1 border-r border-slate-300 text-center bg-slate-900 text-amber-300 font-bold truncate";
+        } else {
+          view.classList.add("hidden");
+          tab.className = "py-2 px-1 border-r border-slate-300 text-center bg-slate-200 hover:bg-slate-300 text-slate-700 truncate";
+        }
+      }
+
+      if (step === 1) updateLevelUI();
+      if (step === 4) {
+        populateMeasureTargetSelect();
+        updateUnsavedBanner();
+      }
+      if (step === 5) calculateFreeStation();
+
+      updateSoftkeyLabels();
+    }
+
+    function updateUnsavedBanner() {
+      const banner = document.getElementById("unsavedSettingsBanner");
+      if (!banner) return;
+      const warnings = [];
+      if (tsState.weatherDirty) {
+        warnings.push("Vaiheen 1 sääkorjausta on muutettu, mutta sitä ei ole kuitattu F1/F4-näppäimellä.");
+      }
+      if (tsState.stationDirty) {
+        warnings.push("Vaiheen 3 asemapisteen tietoja on muutettu, mutta niitä ei ole kuitattu F1/F4-näppäimellä.");
+      }
+      if (warnings.length > 0) {
+        banner.classList.remove("hidden");
+        banner.innerHTML = `⚠️ <strong>Tallentamattomia asetuksia:</strong> ${warnings.join(" ")}`;
+      } else {
+        banner.classList.add("hidden");
+      }
+    }
+
+    function updateSoftkeyLabels() {
+      const f1 = document.getElementById("lblF1");
+      const f2 = document.getElementById("lblF2");
+      const f3 = document.getElementById("lblF3");
+      const f4 = document.getElementById("lblF4");
+
+      if (currentStep === 1) {
+        f1.textContent = "F1: ASETA PPM";
+        f2.textContent = "F2: SEKOITA KUPLA";
+        f3.textContent = "F3: -";
+        f4.textContent = "F4: SEURAAVA >";
+      } else if (currentStep === 2) {
+        f1.textContent = "F1: LISÄÄ PISTE";
+        f2.textContent = "F2: TUO KAIKKI";
+        f3.textContent = "F3: < TAKAISIN";
+        f4.textContent = "F4: SEURAAVA >";
+      } else if (currentStep === 3) {
+        f1.textContent = "F1: TALLENNA ASP";
+        f2.textContent = "F2: i = 0.000 m";
+        f3.textContent = "F3: < TAKAISIN";
+        f4.textContent = "F4: MITTAUKSEEN >";
+      } else if (currentStep === 4) {
+        f1.textContent = "F1: MITTAA (DIST)";
+        f2.textContent = "F2: TALLENNA (ALL)";
+        f3.textContent = "F3: < TAKAISIN";
+        f4.textContent = "F4: LASKE ASP >";
+      } else if (currentStep === 5) {
+        f1.textContent = "F1: LASKE UUD.";
+        f2.textContent = "F2: + LISÄÄ HAV.";
+        f3.textContent = "F3: < MITTAUS";
+        f4.textContent = "F4: VALMIS";
+      }
+    }
+
+    function pressSoftkey(keyNum) {
+      if (tsState.isMeasuring) return;
+      if (currentStep !== 4 || (keyNum !== 1 && keyNum !== 2)) {
+        playBeep(1100, 0.04);
+      }
+      if (currentStep === 1) {
+        if (keyNum === 1) saveWeatherSettings();
+        if (keyNum === 2) randomizeBubble();
+        if (keyNum === 4) {
+          saveWeatherSettings();
+          goToStep(2);
+        }
+      } else if (currentStep === 2) {
+        if (keyNum === 1) addManualPoint();
+        if (keyNum === 2) importPointsFromFieldCard();
+        if (keyNum === 3) goToStep(1);
+        if (keyNum === 4) goToStep(3);
+      } else if (currentStep === 3) {
+        if (keyNum === 1) saveStationSettings();
+        if (keyNum === 2) setZeroInstHeight();
+        if (keyNum === 3) goToStep(2);
+        if (keyNum === 4) {
+          saveStationSettings();
+          goToStep(4);
+        }
+      } else if (currentStep === 4) {
+        if (keyNum === 1) performMeasurement(false);
+        if (keyNum === 2) performMeasurement(true);
+        if (keyNum === 3) goToStep(3);
+        if (keyNum === 4) goToStep(5);
+      } else if (currentStep === 5) {
+        if (keyNum === 1) calculateFreeStation();
+        if (keyNum === 2) goToStep(4);
+        if (keyNum === 3) goToStep(4);
+        if (keyNum === 4) {
+          tsState.stationAccepted = true;
+          calculateFreeStation();
+        }
+      }
+    }
+
+    function updateStatusHeader() {
+      const edmInput = document.getElementById("inputEdmMode");
+      const constInput = document.getElementById("inputPrismConst");
+      const thInput = document.getElementById("inputTargetHeight");
+
+      if (edmInput) tsState.edmMode = edmInput.value;
+      if (constInput) tsState.prismConst = parseFloat(constInput.value) || 0.0;
+      if (thInput) tsState.targetHeight = parseFloat(thInput.value) || 0.0;
+
+      const modeEl = document.getElementById("statusEdmMode");
+      if (tsState.edmMode === "prism") {
+        modeEl.textContent = "IR-Prisma";
+        modeEl.className = "px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30 font-semibold";
+      } else {
+        modeEl.textContent = "DR-Pinta";
+        modeEl.className = "px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30 font-semibold";
+      }
+
+      document.getElementById("statusPrismConst").textContent = tsState.prismConst.toFixed(1);
+      document.getElementById("statusPpm").textContent = (tsState.ppm >= 0 ? "+" : "") + tsState.ppm.toFixed(1);
+      document.getElementById("statusPtCount").textContent = tsState.jobPoints.length;
+      document.getElementById("statusObsCount").textContent = tsState.observations.length;
+    }
+
+    /***********************************************************************
+     * 8. VAIHE 1: KOJEEN TASAUS (3 JALKARUUVIA A, B, C) JA SÄÄKORJAUKSET
+     ***********************************************************************/
+    function turnFootScrew(screw, dir) {
+      const step = 0.0040 * dir;
+      if (screw === "C") {
+        tsState.tiltY = Math.round((tsState.tiltY - step) * 10000) / 10000;
+      } else if (screw === "A") {
+        tsState.tiltX = Math.round((tsState.tiltX - step * 0.866025) * 10000) / 10000;
+        tsState.tiltY = Math.round((tsState.tiltY + step * 0.500000) * 10000) / 10000;
+      } else if (screw === "B") {
+        tsState.tiltX = Math.round((tsState.tiltX + step * 0.866025) * 10000) / 10000;
+        tsState.tiltY = Math.round((tsState.tiltY + step * 0.500000) * 10000) / 10000;
+      }
+      playBeep(950, 0.03);
+      updateLevelUI();
+    }
+
+    function turnPairedAB(dir) {
+      const step = 0.0035 * dir;
+      tsState.tiltX = Math.round((tsState.tiltX + step * 1.73205) * 10000) / 10000;
+      playBeep(980, 0.03);
+      updateLevelUI();
+    }
+
+    function randomizeBubble() {
+      const angle = Math.random() * Math.PI * 2;
+      const mag = 0.025 + Math.random() * 0.018;
+      tsState.tiltX = Math.round(Math.cos(angle) * mag * 10000) / 10000;
+      tsState.tiltY = Math.round(Math.sin(angle) * mag * 10000) / 10000;
+      playBeep(750, 0.06);
+      updateLevelUI();
+    }
+
+    function updateLevelUI() {
+      const totalTilt = Math.hypot(tsState.tiltX, tsState.tiltY);
+      tsState.isLeveled = totalTilt <= 0.0080;
+
+      const xEl = document.getElementById("tiltXDisplay");
+      const yEl = document.getElementById("tiltYDisplay");
+      if (xEl) xEl.textContent = (tsState.tiltX >= 0 ? "+" : "") + tsState.tiltX.toFixed(4);
+      if (yEl) yEl.textContent = (tsState.tiltY >= 0 ? "+" : "") + tsState.tiltY.toFixed(4);
+
+      const statusText = document.getElementById("levelStatusText");
+      const headerBadge = document.getElementById("statusLevelBadge");
+
+      if (tsState.isLeveled) {
+        if (statusText) {
+          statusText.textContent = "✓ Koje tasattu (OK)";
+          statusText.className = "text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300";
+        }
+        if (headerBadge) {
+          headerBadge.textContent = "✓ Tasattu";
+          headerBadge.className = "px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-semibold";
+        }
+        const hasPreSettlementObs = tsState.observations.some(o => o.metaError && o.metaError.beforeSettlement);
+        const fb1 = document.getElementById("step1Feedback");
+        if (tsState.winterSettlementTriggered && hasPreSettlementObs && fb1 && currentStep === 1) {
+          fb1.classList.remove("hidden");
+          fb1.className = "text-xs rounded-lg p-2 bg-amber-100 border border-amber-300 text-amber-950 font-medium";
+          fb1.innerHTML = `✓ <strong>Koje tasattu uudelleen kompensaattorin toiminta-alueelle.</strong> Muista kuitenkin, että jalustan painuminen on muuttanut kojeen vaaka-akselin korkeutta ja sijaintia – <strong>mittaa ennen painumista otetut liitospisteet uudelleen</strong> Vaiheessa 4!`;
+        }
+      } else {
+        if (statusText) {
+          statusText.textContent = "⚠️ Tasaamaton";
+          statusText.className = "text-[11px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300";
+        }
+        if (headerBadge) {
+          headerBadge.textContent = "⚠️ Ei tasattu";
+          headerBadge.className = "px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-400/30 font-semibold";
+        }
+      }
+      drawLevelBubble();
+    }
+
+    function drawLevelBubble() {
+      const canvas = document.getElementById("levelCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Ulkokehä
+      const outerR = 44;
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = tsState.isLeveled ? "#34d399" : "#64748b";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Keskitoleranssirengas (0.0080 gon)
+      const maxTilt = 0.045;
+      const tolR = (0.0080 / maxTilt) * (outerR - 8);
+      ctx.fillStyle = tsState.isLeveled ? "rgba(16, 185, 129, 0.16)" : "rgba(244, 63, 94, 0.12)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, tolR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = tsState.isLeveled ? "#10b981" : "#f43f5e";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, tolR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Ristikko
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - outerR + 4, cy);
+      ctx.lineTo(cx + outerR - 4, cy);
+      ctx.moveTo(cx, cy - outerR + 4);
+      ctx.lineTo(cx, cy + outerR - 4);
+      ctx.stroke();
+
+      // Jalkaruuvien tunnukset (C ylhäällä, A alavasemmalla, B alaoikealla)
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fbbf24";
+      ctx.fillText("C", cx, 13);
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillText("A", 14, h - 10);
+      ctx.fillStyle = "#34d399";
+      ctx.fillText("B", w - 14, h - 10);
+
+      // Ilmakupla
+      const rawDx = (tsState.tiltX / maxTilt) * (outerR - 9);
+      const rawDy = (tsState.tiltY / maxTilt) * (outerR - 9);
+      const dist = Math.hypot(rawDx, rawDy);
+      const clampScale = dist > (outerR - 9) ? (outerR - 9) / dist : 1;
+      const bx = cx + rawDx * clampScale;
+      const by = cy + rawDy * clampScale;
+
+      ctx.fillStyle = tsState.isLeveled ? "#34d399" : "#fbbf24";
+      ctx.strokeStyle = "#020617";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(bx, by, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Kiilto kuplassa
+      ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+      ctx.beginPath();
+      ctx.arc(bx - 2.2, by - 2.2, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function onWeatherInputChange(silent = false) {
+      const t = parseFloat(document.getElementById("inputTemp").value);
+      const p = parseFloat(document.getElementById("inputPress").value);
+      const h = parseFloat(document.getElementById("inputHum").value);
+
+      const validT = isNaN(t) ? 20.0 : t;
+      const validP = isNaN(p) ? 1013.2 : p;
+      const validH = isNaN(h) ? 60 : h;
+
+      const previewPpm = calculateAtmosphericPpm(validT, validP, validH);
+      const mmPer100m = previewPpm * 0.1;
+      const sign = previewPpm >= 0 ? "+" : "";
+      const mmSign = mmPer100m >= 0 ? "+" : "";
+      document.getElementById("previewPpmDisplay").textContent =
+        `${sign}${previewPpm.toFixed(1)} ppm (${mmSign}${mmPer100m.toFixed(2)} mm / 100 m)`;
+
+      if (!silent) {
+        tsState.weatherDirty = true;
+        const badge = document.getElementById("weatherDirtyBadge");
+        if (badge) badge.classList.remove("hidden");
+      }
+    }
+
+    function saveWeatherSettings() {
+      const t = parseFloat(document.getElementById("inputTemp").value);
+      const p = parseFloat(document.getElementById("inputPress").value);
+      const h = parseFloat(document.getElementById("inputHum").value);
+
+      tsState.temp = isNaN(t) ? 20.0 : t;
+      tsState.press = isNaN(p) ? 1013.2 : p;
+      tsState.hum = isNaN(h) ? 60 : h;
+      tsState.ppm = calculateAtmosphericPpm(tsState.temp, tsState.press, tsState.hum);
+      tsState.weatherDirty = false;
+
+      const badge = document.getElementById("weatherDirtyBadge");
+      if (badge) badge.classList.add("hidden");
+
+      updateStatusHeader();
+      invalidateLastMeasurement();
+
+      const fb = document.getElementById("step1Feedback");
+      fb.classList.remove("hidden");
+      fb.className = "text-xs rounded-lg p-2 bg-emerald-100 border border-emerald-300 text-emerald-900 font-medium";
+      fb.innerHTML = `✓ Sääkorjaus <strong>${tsState.ppm >= 0 ? "+" : ""}${tsState.ppm.toFixed(1)} ppm</strong> (${tsState.temp.toFixed(1)} °C, ${tsState.press.toFixed(1)} hPa) tallennettu etäisyysmittariin.`;
+    }
+
+    /***********************************************************************
+     * 9. VAIHE 2: LIITOSPISTEET
+     ***********************************************************************/
+    function addManualPoint() {
+      const idEl = document.getElementById("newPtId");
+      const nEl = document.getElementById("newPtN");
+      const eEl = document.getElementById("newPtE");
+      const hEl = document.getElementById("newPtH");
+      const fb = document.getElementById("step2Feedback");
+
+      const id = idEl.value.trim().toUpperCase();
+      const N = parseFloat(nEl.value);
+      const E = parseFloat(eEl.value);
+      const H = parseFloat(hEl.value);
+
+      const missing = [];
+      if (!id) missing.push("Piste ID");
+      if (isNaN(N)) missing.push("X / N");
+      if (isNaN(E)) missing.push("Y / E");
+      if (isNaN(H)) missing.push("Z / H");
+
+      if (missing.length > 0) {
+        fb.classList.remove("hidden");
+        fb.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+        fb.innerHTML = `❌ <strong>Puutteelliset tiedot:</strong> Täytä puuttuvat kentät (${missing.join(", ")}) ennen pisteen lisäämistä.`;
+        playBeep(320, 0.16, "sawtooth");
+        return;
+      }
+
+      const existingIdx = tsState.jobPoints.findIndex(p => p.id === id);
+      if (existingIdx >= 0) {
+        tsState.jobPoints[existingIdx] = { id, N, E, H };
+      } else {
+        tsState.jobPoints.push({ id, N, E, H });
+      }
+
+      idEl.value = "";
+      nEl.value = "";
+      eEl.value = "";
+      hEl.value = "";
+
+      fb.classList.remove("hidden");
+      fb.className = "text-xs rounded-lg p-2 bg-emerald-100 border border-emerald-300 text-emerald-900 font-medium";
+      fb.innerHTML = `✓ Liitospiste <strong>${id}</strong> tallennettu jobin muistiin.`;
+
+      renderJobPointsTable();
+      populateMeasureTargetSelect();
+      updateStatusHeader();
+    }
+
+    function importPointsFromFieldCard() {
+      const scen = SCENARIOS[currentScenarioIndex];
+      for (const cp of scen.controlPoints) {
+        const idx = tsState.jobPoints.findIndex(p => p.id === cp.id);
+        const obj = { id: cp.id, N: cp.N, E: cp.E, H: cp.H };
+        if (idx >= 0) tsState.jobPoints[idx] = obj;
+        else tsState.jobPoints.push(obj);
+      }
+
+      const fb = document.getElementById("step2Feedback");
+      fb.classList.remove("hidden");
+      fb.className = "text-xs rounded-lg p-2 bg-emerald-100 border border-emerald-300 text-emerald-900 font-medium";
+      fb.innerHTML = `📥 Kaikki ${scen.controlPoints.length} liitospistettä tuotu maastokortilta takymetrin muistiin.`;
+
+      renderJobPointsTable();
+      populateMeasureTargetSelect();
+      updateStatusHeader();
+    }
+
+    function deleteJobPoint(id) {
+      tsState.jobPoints = tsState.jobPoints.filter(p => p.id !== id);
+      renderJobPointsTable();
+      populateMeasureTargetSelect();
+      updateStatusHeader();
+    }
+
+    function clearJobPoints() {
+      tsState.jobPoints = [];
+      renderJobPointsTable();
+      populateMeasureTargetSelect();
+      updateStatusHeader();
+    }
+
+    function renderJobPointsTable() {
+      const tbody = document.getElementById("jobPointsTableBody");
+      if (tsState.jobPoints.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-3 text-center text-slate-400 font-sans">
+              Ei liitospisteitä muistissa. Syötä käsin tai tuo maastokortilta.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = tsState.jobPoints.map(p => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-1 px-2 font-bold text-slate-900">${p.id}</td>
+          <td class="py-1 px-2">${p.N.toFixed(3)}</td>
+          <td class="py-1 px-2">${p.E.toFixed(3)}</td>
+          <td class="py-1 px-2">${p.H.toFixed(3)}</td>
+          <td class="py-1 px-1 text-right">
+            <button onclick="deleteJobPoint('${p.id}')" class="text-rose-600 hover:text-rose-800 font-bold px-1" title="Poista piste">×</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    /***********************************************************************
+     * 10. VAIHE 3: ASEMAPISTEEN TIEDOT
+     ***********************************************************************/
+    function markStationDirty() {
+      tsState.stationDirty = true;
+      const badge = document.getElementById("stationDirtyBadge");
+      if (badge) badge.classList.remove("hidden");
+    }
+
+    function setZeroInstHeight() {
+      document.getElementById("inputInstHeight").value = "0.000";
+      saveStationSettings();
+    }
+
+    function useTapeInstHeight() {
+      const scen = SCENARIOS[currentScenarioIndex];
+      document.getElementById("inputInstHeight").value = scen.trueStation.instHeight.toFixed(3);
+      saveStationSettings();
+    }
+
+    function saveStationSettings() {
+      const nameInput = document.getElementById("inputStationName").value.trim().toUpperCase();
+      const ihVal = parseFloat(document.getElementById("inputInstHeight").value);
+
+      tsState.stationName = nameInput || SCENARIOS[currentScenarioIndex].trueStation.suggestedName;
+      tsState.instHeight = isNaN(ihVal) ? 0.000 : ihVal;
+      tsState.stationDirty = false;
+
+      const badge = document.getElementById("stationDirtyBadge");
+      if (badge) badge.classList.add("hidden");
+
+      const fb = document.getElementById("step3Feedback");
+      fb.classList.remove("hidden");
+      fb.className = "text-xs rounded-lg p-2 bg-emerald-100 border border-emerald-300 text-emerald-900 font-medium";
+      fb.innerHTML = `✓ Asemapiste <strong>${tsState.stationName}</strong> ja kojekorkeus <span class="mono font-bold">i = ${tsState.instHeight.toFixed(3)} m</span> tallennettu.`;
+    }
+
+    /***********************************************************************
+     * 11. VAIHE 4: TÄHYS- JA MITTAUSASETUKSET, AUTOLOCK JA HAVAINNOT
+     ***********************************************************************/
+    function populateMeasureTargetSelect() {
+      const sel = document.getElementById("measureTargetSelect");
+      if (!sel) return;
+      const prevVal = sel.value || tsState.selectedTargetId;
+
+      if (tsState.jobPoints.length === 0) {
+        sel.innerHTML = `<option value="">-- Ei pisteitä (Vaihe 2) --</option>`;
+        tsState.selectedTargetId = "";
+        return;
+      }
+
+      sel.innerHTML = tsState.jobPoints.map(p => {
+        const obs = tsState.observations.find(o => o.id === p.id);
+        const mark = obs
+          ? (obs.face1 && obs.face2 ? " ✓ [I+II]" : " ✓ [I]")
+          : "";
+        return `<option value="${p.id}">${p.id}${mark}</option>`;
+      }).join("");
+
+      if (prevVal && tsState.jobPoints.some(p => p.id === prevVal)) {
+        sel.value = prevVal;
+      } else {
+        const unmeasured = tsState.jobPoints.find(p => !tsState.observations.some(o => o.id === p.id));
+        sel.value = unmeasured ? unmeasured.id : tsState.jobPoints[0].id;
+      }
+      tsState.selectedTargetId = sel.value;
+    }
+
+    function onTargetSelectChange() {
+      const sel = document.getElementById("measureTargetSelect");
+      tsState.selectedTargetId = sel.value;
+      invalidateLastMeasurement();
+      lastInspectorSignature = "";
+    }
+
+    function onEdmModeChange() {
+      invalidateLastMeasurement();
+      updateStatusHeader();
+    }
+
+    function setQuickPrismConst(val) {
+      if (val === "custom") return;
+      const num = parseFloat(val);
+      if (!isNaN(num)) {
+        document.getElementById("inputPrismConst").value = num.toFixed(1);
+        invalidateLastMeasurement();
+        updateStatusHeader();
+      }
+    }
+
+    function onManualPrismConstInput() {
+      const val = parseFloat(document.getElementById("inputPrismConst").value);
+      const quickSel = document.getElementById("quickConstSelect");
+      if (!isNaN(val)) {
+        const matchedOpt = ["-30.0", "-17.5", "-11.3", "0.0"].find(opt => Math.abs(parseFloat(opt) - val) < 0.05);
+        quickSel.value = matchedOpt || "custom";
+      }
+      invalidateLastMeasurement();
+      updateStatusHeader();
+    }
+
+    function triggerAutolock() {
+      if (tsState.isMeasuring || (tsState.faceAnim && tsState.faceAnim.active)) return;
+      const msgBox = document.getElementById("measureMsgBox");
+      if (msgBox) msgBox.classList.remove("hidden");
+
+      const ATR_SEARCH_RADIUS_GON = 0.14;
+      const distractor = getDistractorGeometry();
+      const aimed = getAimedTarget();
+
+      // Tarkistetaan ensin lähellä oleva häiriöheijastin (valelukitusvaara)
+      if (distractor && distractor.angDist <= ATR_SEARCH_RADIUS_GON && (!aimed || distractor.angDist < aimed.angDist + 0.02)) {
+        setScopeFromEffectiveAim(distractor.trueHz, distractor.trueV);
+        tsState.atrLockedOn = "distractor";
+        invalidateLastMeasurement();
+        playBeep(480, 0.14, "sawtooth");
+        if (msgBox) {
+          msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+          msgBox.innerHTML = `⚠️ <strong>ATR VALELUKITUS:</strong> Autolock lukittui kohteeseen <em>"${distractor.label}"</em>! Tarkista näkemäkuva kaukoputkella ja käännä tähtäys prismaan.`;
+        }
+        return;
+      }
+
+      if (!aimed || aimed.angDist > ATR_SEARCH_RADIUS_GON) {
+        playBeep(320, 0.16, "sawtooth");
+        if (msgBox) {
+          msgBox.className = "text-xs rounded-lg p-2 bg-amber-100 border border-amber-300 text-amber-900 font-medium";
+          msgBox.innerHTML = "🎯 <strong>ATR: Ei heijastinta hakukehässä!</strong> Suuntaa kaukoputki ensin karkeasti kohteen lähelle (sinisen katkoviivakehän sisälle).";
+        }
+        return;
+      }
+
+      const tgt = aimed.tgt;
+      if (tgt.targetKind === "plain_tape") {
+        playBeep(320, 0.16, "sawtooth");
+        if (msgBox) {
+          msgBox.className = "text-xs rounded-lg p-2 bg-amber-100 border border-amber-300 text-amber-900 font-medium";
+          msgBox.innerHTML = `🎯 <strong>ATR ei lukitu:</strong> Kohteessa <strong>${tgt.id}</strong> on heijastimeton tarra. Kohdista viivaristikko käsin täsmäruuveilla ja käytä <strong>Pintamittaus (DR)</strong> -tilaa.`;
+        }
+        return;
+      }
+
+      if (tgt.targetKind === "reflective_tape") {
+        // Heijastintarraan ATR lukittuu hieman sivuun (~14 mgon)
+        const biasHz = 0.0115;
+        const biasV = -0.0082;
+        setScopeFromEffectiveAim(tgt.trueHz + biasHz, tgt.trueV + biasV);
+        tsState.atrLockedOn = "reflective_tape_biased";
+        invalidateLastMeasurement();
+        playBeep(1150, 0.07);
+        setTimeout(() => playBeep(920, 0.09), 80);
+        if (msgBox) {
+          msgBox.className = "text-xs rounded-lg p-2 bg-amber-100 border border-amber-300 text-amber-950 font-medium";
+          msgBox.innerHTML = `⚠️ <strong>ATR lukittui heijastintarraan epäkeskisesti (~14.1 mgon sivuun):</strong> Tarkista kohdistus <strong>Kaukoputki</strong>-näkymässä ja keskitä viivaristikko täsmäruuveilla (≤ 1.5 mgon)!`;
+        }
+        return;
+      }
+
+      // Lasiprisma: ATR lukittuu tarkasti (~0.4 mgon)
+      const atrNoiseHz = (Math.random() - 0.5) * 0.0006;
+      const atrNoiseV = (Math.random() - 0.5) * 0.0006;
+      setScopeFromEffectiveAim(tgt.trueHz + atrNoiseHz, tgt.trueV + atrNoiseV);
+      tsState.atrLockedOn = tgt.id;
+      invalidateLastMeasurement();
+      playBeep(1350, 0.06);
+      setTimeout(() => playBeep(1750, 0.08), 75);
+
+      if (msgBox) {
+        msgBox.className = "text-xs rounded-lg p-2 bg-sky-100 border border-sky-300 text-sky-900 font-medium";
+        msgBox.innerHTML = `🎯 <strong>ATR-lukitus:</strong> Autolock kohdisti prismaan (<strong>${tgt.id}</strong>). Tarkista kaukoputkesta prisman vakio ja tähyskorkeus <span class="mono">m</span> ennen tallennusta (<strong>F2</strong>).`;
+      }
+    }
+
+    function combineFaceObservations(f1, f2) {
+      if (f1 && f2) {
+        const hz2Reduced = normGon(f2.Hz + 200.0);
+        const diffHz = signedGonDiff(hz2Reduced, f1.Hz);
+        const meanHz = normGon(f1.Hz + diffHz / 2.0);
+
+        const v2Reduced = 400.0 - f2.V;
+        const meanV = (f1.V + v2Reduced) / 2.0;
+        const twoE0Mgon = (f1.V + f2.V - 400.0) * 1000.0;
+        const faceSpreadMgon = Math.hypot(diffHz * 1000.0, twoE0Mgon);
+
+        const meanSD = (f1.SD + f2.SD) / 2.0;
+        const meanHD = meanSD * Math.sin(meanV * GON_TO_RAD);
+
+        return {
+          Hz: meanHz,
+          V: meanV,
+          SD: meanSD,
+          HD: meanHD,
+          prismConst: f2.enteredConst,
+          targetHeight: f2.enteredTargetH,
+          twoE0Mgon,
+          faceSpreadMgon,
+          metaError: {
+            recordedAsId: f2.recordedAsId,
+            aimedPhysicalId: f2.aimedPhysicalId,
+            wrongPointAimed: f1.wrongPointAimed || f2.wrongPointAimed,
+            aimOffsetGon: Math.max(f1.aimOffsetGon, f2.aimOffsetGon),
+            atrTapeBiasUsed: f1.atrTapeBiasUsed || f2.atrTapeBiasUsed,
+            enteredConst: f2.enteredConst,
+            trueConst: f2.trueConst,
+            enteredTargetH: f2.enteredTargetH,
+            trueTargetH: f2.trueTargetH,
+            enteredPpm: f2.enteredPpm,
+            truePpm: f2.truePpm,
+            rlOnPrismWarning: f1.rlOnPrismWarning || f2.rlOnPrismWarning,
+            disturbedPoint: f1.disturbedPoint || f2.disturbedPoint,
+            faceMismatch: faceSpreadMgon > 25.0 || Math.abs(twoE0Mgon) > 25.0,
+            beforeSettlement: !!(f1.beforeSettlement || f2.beforeSettlement)
+          }
+        };
+      }
+
+      const single = f1 || f2;
+      const effHz = single.face === 1 ? single.Hz : normGon(single.Hz + 200.0);
+      const effV = single.face === 1 ? single.V : (400.0 - single.V);
+      return {
+        Hz: effHz,
+        V: effV,
+        SD: single.SD,
+        HD: single.HD,
+        prismConst: single.enteredConst,
+        targetHeight: single.enteredTargetH,
+        twoE0Mgon: 0,
+        faceSpreadMgon: 0,
+        metaError: {
+          recordedAsId: single.recordedAsId,
+          aimedPhysicalId: single.aimedPhysicalId,
+          wrongPointAimed: single.wrongPointAimed,
+          aimOffsetGon: single.aimOffsetGon,
+          atrTapeBiasUsed: single.atrTapeBiasUsed,
+          enteredConst: single.enteredConst,
+          trueConst: single.trueConst,
+          enteredTargetH: single.enteredTargetH,
+          trueTargetH: single.trueTargetH,
+          enteredPpm: single.enteredPpm,
+          truePpm: single.truePpm,
+          rlOnPrismWarning: single.rlOnPrismWarning,
+          disturbedPoint: single.disturbedPoint,
+          faceMismatch: false,
+          beforeSettlement: !!single.beforeSettlement
+        }
+      };
+    }
+
+    function recordLastMeasurementToJob(targetId) {
+      const m = tsState.lastMeasurement;
+      if (!m) return;
+      const msgBox = document.getElementById("measureMsgBox");
+      msgBox.classList.remove("hidden");
+
+      const faceEntry = {
+        face: m.face,
+        Hz: m.Hz,
+        V: m.V,
+        SD: m.SD,
+        HD: m.HD,
+        recordedAsId: targetId,
+        aimedPhysicalId: m.aimedPhysicalId,
+        wrongPointAimed: m.aimedPhysicalId !== targetId,
+        aimOffsetGon: m.aimOffsetGon,
+        atrTapeBiasUsed: m.atrTapeBiasUsed,
+        enteredConst: m.enteredConst,
+        trueConst: m.trueConst,
+        enteredTargetH: tsState.targetHeight,
+        trueTargetH: m.trueTargetH,
+        enteredPpm: m.enteredPpm,
+        truePpm: m.truePpm,
+        rlOnPrismWarning: m.rlOnPrismWarning,
+        disturbedPoint: m.disturbedPoint,
+        edmMode: m.edmMode,
+        beforeSettlement: false
+      };
+
+      const existingIdx = tsState.observations.findIndex(o => o.id === targetId);
+      let f1 = null;
+      let f2 = null;
+      let activeFlag = true;
+
+      if (existingIdx >= 0) {
+        const prev = tsState.observations[existingIdx];
+        const keepPrevF1 = prev.face1 && !(tsState.winterSettlementTriggered && prev.face1.beforeSettlement);
+        const keepPrevF2 = prev.face2 && !(tsState.winterSettlementTriggered && prev.face2.beforeSettlement);
+        f1 = m.face === 1 ? faceEntry : (keepPrevF1 ? prev.face1 : null);
+        f2 = m.face === 2 ? faceEntry : (keepPrevF2 ? prev.face2 : null);
+        activeFlag = prev.active;
+      } else {
+        f1 = m.face === 1 ? faceEntry : null;
+        f2 = m.face === 2 ? faceEntry : null;
+      }
+
+      const combined = combineFaceObservations(f1, f2);
+      const obsObj = {
+        id: targetId,
+        face1: f1,
+        face2: f2,
+        ...combined,
+        active: activeFlag
+      };
+
+      if (existingIdx >= 0) {
+        tsState.observations[existingIdx] = obsObj;
+      } else {
+        tsState.observations.push(obsObj);
+      }
+
+      tsState.lastMeasurement = null;
+      tsState.stationAccepted = false;
+
+      // Talviharjoituksessa (Harjoitus 2) jalusta painuu lumen/jään päällä kahden mitatun pisteen jälkeen!
+      if (currentScenarioIndex === 1 && !tsState.winterSettlementTriggered && tsState.observations.length >= 2) {
+        tsState.winterSettlementTriggered = true;
+        tsState.tiltX = 0.0145;
+        tsState.tiltY = -0.0110;
+
+        tsState.observations = tsState.observations.map(o => {
+          const applyShift = (fe) => {
+            if (!fe) return null;
+            const dHShift = 0.008;
+            const dVRad = -dHShift / Math.max(10, fe.SD);
+            const dVGon = dVRad * RAD_TO_GON;
+            const shiftedV = fe.face === 1 ? (fe.V + dVGon) : (fe.V - dVGon);
+            const shiftedHz = normGon(fe.Hz + 0.0032);
+            return { ...fe, V: shiftedV, Hz: shiftedHz, beforeSettlement: true };
+          };
+          const nf1 = applyShift(o.face1);
+          const nf2 = applyShift(o.face2);
+          return { ...o, face1: nf1, face2: nf2, ...combineFaceObservations(nf1, nf2) };
+        });
+
+        updateLevelUI();
+        playBeep(440, 0.14, "sawtooth");
+        setTimeout(() => playBeep(360, 0.18, "sawtooth"), 160);
+        msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium leading-snug";
+        msgBox.innerHTML = `⚠️ <strong>JALUSTA PAINUI JÄÄN/LUMEN PÄÄLLÄ!</strong> Kompensaattori ylitti toiminta-alueensa. <strong>Huom:</strong> Kompensaattori korjaa vain pienen pystyakselin kallistuman kulmalukemiin – se ei korjaa jalustan painumisesta johtuvaa vaaka-akselin korkeus-, taso- tai kiertymäsiirtymää. Tasaa koje uudelleen <strong>Vaiheessa 1</strong> ja <strong>mittaa myös aiemmat pisteet uudelleen</strong> yhtenäisen orientoinnin varmistamiseksi!`;
+      } else if (f1 && f2) {
+        if (combined.faceMismatch) {
+          msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+          msgBox.innerHTML = `⚠️ <strong>I- ja II-asento tallennettu pisteelle ${targetId}, mutta asentojen välillä on suuri ero (${combined.faceSpreadMgon.toFixed(1)} mgon)!</strong> Tarkista tähtäsitkö molemmissa kojeasennoissa samaan pisteeseen.`;
+        } else {
+          msgBox.className = "text-xs rounded-lg p-2 bg-emerald-100 border border-emerald-300 text-emerald-900 font-medium";
+          msgBox.innerHTML = `✓ Pisteen <strong>${targetId}</strong> havainnot molemmissa kojeasennoissa (<strong>I+II</strong>) tallennettu! Kojeen akselivirheet on eliminoitu (<span class="mono">2e₀ = ${combined.twoE0Mgon >= 0 ? "+" : ""}${combined.twoE0Mgon.toFixed(1)} mgon</span>).`;
+        }
+      } else {
+        const faceLabel = m.face === 1 ? "I-asento" : "II-asento";
+        msgBox.className = "text-xs rounded-lg p-2 bg-emerald-100 border border-emerald-300 text-emerald-900 font-medium";
+        msgBox.innerHTML = `✓ Havainto (<strong>${faceLabel}</strong>) pisteelle <strong>${targetId}</strong> tallennettu (<span class="mono">Hz=${m.Hz.toFixed(4)} gon, s=${m.HD.toFixed(3)} m</span>). Voit halutessasi vaihtaa kojeasentoa tai siirtyä seuraavaan pisteeseen.`;
+      }
+
+      populateMeasureTargetSelect();
+      renderObservationsTable();
+      updateStatusHeader();
+    }
+
+    function performMeasurement(saveToJob = true) {
+      if (tsState.isMeasuring) return;
+      updateStatusHeader();
+      const msgBox = document.getElementById("measureMsgBox");
+      msgBox.classList.remove("hidden");
+
+      if (!tsState.isLeveled) {
+        msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+        msgBox.innerHTML = "❌ <strong>KOMPENSAATTORIN TOIMINTA-ALUE YLITETTY: Kojetta ei ole tasattu!</strong> Palaa vaiheeseen 1 ja tasaa sähköinen tasain jalkaruuveilla ennen mittausta.";
+        playBeep(280, 0.22, "sawtooth");
+        return;
+      }
+
+      if (tsState.jobPoints.length === 0) {
+        msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+        msgBox.innerHTML = "❌ Syötä ensin orientoinnin liitospisteet vaiheessa 2!";
+        playBeep(300, 0.2, "sawtooth");
+        return;
+      }
+
+      const targetId = document.getElementById("measureTargetSelect").value;
+      if (!targetId) {
+        msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+        msgBox.innerHTML = "❌ Valitse ensin mitattava tähtäyspiste valikosta!";
+        return;
+      }
+
+      // Jos etäisyys on jo otettu (F1), F2 tallentaa havainnon välittömästi ilman uutta mittausviivettä
+      if (saveToJob && tsState.lastMeasurement && tsState.lastMeasurement.face === tsState.face) {
+        playBeep(1450, 0.07);
+        recordLastMeasurementToJob(targetId);
+        return;
+      }
+
+      tsState.isMeasuring = true;
+      ["btnF1", "btnF2", "btnF3", "btnF4"].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = true;
+      });
+
+      document.getElementById("lblF1").textContent = "MITATAAN...";
+      document.getElementById("lblF2").textContent = "MITATAAN...";
+      document.getElementById("lastMeasuredHD").textContent = "Mitataan...";
+      document.getElementById("lastMeasuredSD").textContent = "Mitataan...";
+
+      msgBox.className = "text-xs rounded-lg p-2 bg-amber-100 border border-amber-300 text-amber-900 font-medium animate-pulse";
+      msgBox.innerHTML = `⏳ <strong>Mitataan (${tsState.face === 1 ? "I-asento" : "II-asento"})...</strong> Elektro-optinen etäisyysmittari tekee vaihe-eromittausta pisteelle <strong>${targetId}</strong>.`;
+
+      playBeep(920, 0.06, "triangle");
+      measureTimers.push(setTimeout(() => playBeep(1080, 0.05, "sine"), 500));
+      measureTimers.push(setTimeout(() => playBeep(1180, 0.05, "sine"), 1000));
+      measureTimers.push(setTimeout(() => playBeep(1280, 0.05, "sine"), 1500));
+
+      measureTimers.push(setTimeout(() => {
+        clearMeasureTimers();
+        updateSoftkeyLabels();
+        msgBox.classList.remove("animate-pulse");
+
+        const distractor = getDistractorGeometry();
+        if (distractor && distractor.angDist < 0.035) {
+          document.getElementById("lastMeasuredHD").textContent = "---.--- m";
+          document.getElementById("lastMeasuredSD").textContent = "---.--- m";
+          msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+          msgBox.innerHTML = `❌ <strong>VAROITUS:</strong> Viivaristikko osoittaa kohteeseen <em>"${distractor.label}"</em> eikä tähykseen! Tarkista näkemäkuva kaukoputkella.`;
+          playBeep(300, 0.25, "sawtooth");
+          return;
+        }
+
+        const aimed = getAimedTarget();
+        const PRISM_CAPTURE_TOL_GON = 0.045;
+
+        if (!aimed || aimed.angDist > PRISM_CAPTURE_TOL_GON) {
+          document.getElementById("lastMeasuredHD").textContent = "---.--- m";
+          document.getElementById("lastMeasuredSD").textContent = "---.--- m";
+          msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+          msgBox.innerHTML = "❌ <strong>EDM VIRHE E104: Ei kohdetta viivaristikossa!</strong> Viivaristikon keskipiste ei ole tähyksen kohdalla. Vaihda kaukoputkinäkymään ja kohdista täsmäruuveilla.";
+          playBeep(300, 0.25, "sawtooth");
+          return;
+        }
+
+        const tgt = aimed.tgt;
+
+        if (tgt.targetKind === "plain_tape" && tsState.edmMode === "prism") {
+          document.getElementById("lastMeasuredHD").textContent = "---.--- m";
+          document.getElementById("lastMeasuredSD").textContent = "---.--- m";
+          msgBox.className = "text-xs rounded-lg p-2 bg-rose-100 border border-rose-300 text-rose-900 font-medium";
+          msgBox.innerHTML = `❌ <strong>EDM VIRHE E108: Heikko paluusignaali!</strong> Pisteellä <strong>${tgt.id}</strong> on heijastimeton <strong>tarra</strong>, jota ei voi mitata prismallisena (IR). Vaihda mittaustavaksi <strong>Pintamittaus (DR)</strong>!`;
+          playBeep(300, 0.25, "sawtooth");
+          return;
+        }
+
+        const scen = SCENARIOS[currentScenarioIndex];
+        const truePpm = calculateAtmosphericPpm(scen.weather.temp, scen.weather.press, scen.weather.hum);
+
+        // a) Sääkorjausvirhe
+        const ppmErrorMeters = ((tsState.ppm - truePpm) * 1e-6) * tgt.trueSD;
+
+        // b) Prismavakiovirhe ja mittaustapavirhe
+        let prismErrorMeters = 0;
+        let rlOnPrismWarning = false;
+        let effectiveTrueConst = tgt.trueConst;
+
+        if (tgt.targetKind === "reflective_tape" || tgt.targetKind === "plain_tape") {
+          effectiveTrueConst = 0.0;
+          prismErrorMeters = (tsState.prismConst - 0.0) / 1000.0;
+        } else if (tgt.targetKind === "prism" && tsState.edmMode === "prism_less") {
+          // Lasiprisman mittaaminen DR-tilassa aiheuttaa selvän etäisyysvirheen (n. -22 mm etupintaheijastus / taitekerroin)
+          prismErrorMeters = (0.0 - tgt.trueConst) / 1000.0 - 0.052;
+          rlOnPrismWarning = true;
+        } else {
+          prismErrorMeters = (tsState.prismConst - tgt.trueConst) / 1000.0;
+        }
+
+        // c) Kojeen pienet akselivirheet (c ja e0) sekä satunnainen mittausvirhe
+        const randGauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.0;
+        const distNoise = randGauss() * 0.0005;
+        const hzNoise = randGauss() * 0.0003;
+        const vNoise = randGauss() * 0.0003;
+
+        const cErr = scen.axisErrors ? scen.axisErrors.collimationGon : 0;
+        const e0Err = scen.axisErrors ? scen.axisErrors.vIndexGon : 0;
+        const sinZ = Math.max(0.5, Math.sin(getEffectiveAimV() * GON_TO_RAD));
+
+        const faceSign = tsState.face === 1 ? 1 : -1;
+        const measuredHz = normGon(tsState.scopeHz + faceSign * (cErr / sinZ) + hzNoise);
+        const measuredV = tsState.scopeV + e0Err + vNoise;
+
+        const edgeAimPenalty = (tgt.targetKind === "prism" && aimed.angDist > 0.0060) ? (aimed.angDist - 0.0060) * 0.25 : 0;
+        const measuredSD = tgt.trueSD + ppmErrorMeters + prismErrorMeters + distNoise + edgeAimPenalty;
+        const effectiveV = tsState.face === 1 ? measuredV : (400.0 - measuredV);
+        const measuredHD = measuredSD * Math.sin(effectiveV * GON_TO_RAD);
+
+        tsState.lastMeasurement = {
+          face: tsState.face,
+          Hz: measuredHz,
+          V: measuredV,
+          SD: measuredSD,
+          HD: measuredHD,
+          aimedPhysicalId: tgt.id,
+          aimOffsetGon: aimed.angDist,
+          atrTapeBiasUsed: tsState.atrLockedOn === "reflective_tape_biased" && aimed.angDist > 0.0040,
+          enteredConst: tsState.prismConst,
+          trueConst: effectiveTrueConst,
+          trueTargetH: tgt.trueTargetH,
+          enteredPpm: tsState.ppm,
+          truePpm: truePpm,
+          rlOnPrismWarning,
+          disturbedPoint: !!tgt.disturbed,
+          edmMode: tsState.edmMode
+        };
+
+        document.getElementById("lastMeasuredHD").textContent = `${measuredHD.toFixed(3)} m`;
+        document.getElementById("lastMeasuredSD").textContent = `${measuredSD.toFixed(3)} m`;
+
+        playBeep(1550, 0.08);
+        setTimeout(() => playBeep(2050, 0.12), 95);
+
+        if (!saveToJob) {
+          msgBox.className = "text-xs rounded-lg p-2 bg-sky-100 border border-sky-300 text-sky-900 font-medium";
+          msgBox.innerHTML = `📏 Etäisyys mitattu (<span class="mono font-bold">s = ${measuredHD.toFixed(3)} m</span>, <strong>${tsState.face === 1 ? "I-asento" : "II-asento"}</strong>). Paina <strong>F2 (TALLENNA)</strong> tallentaaksesi havainnon pisteelle <strong>${targetId}</strong>.`;
+          return;
+        }
+
+        recordLastMeasurementToJob(targetId);
+      }, 2000));
+    }
+
+    function deleteObservation(id) {
+      tsState.observations = tsState.observations.filter(o => o.id !== id);
+      populateMeasureTargetSelect();
+      renderObservationsTable();
+      updateStatusHeader();
+    }
+
+    function renderObservationsTable() {
+      const tbody = document.getElementById("observationsTableBody");
+      const badge = document.getElementById("obsReadyBadge");
+
+      if (tsState.observations.length >= 2) {
+        badge.textContent = `${tsState.observations.length} pistettä mitattu – Valmis laskentaan (F4)`;
+        badge.className = "text-[10px] font-bold text-emerald-700";
+      } else {
+        badge.textContent = `Mitattu ${tsState.observations.length}/2 (minimi)`;
+        badge.className = "text-[10px] font-semibold text-amber-700";
+      }
+
+      if (tsState.observations.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-3 text-center text-slate-400 font-sans">
+              Ei mitattuja havaintoja. Tähtää kohteeseen ja paina F2.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = tsState.observations.map(o => {
+        const faceBadge = (o.face1 && o.face2)
+          ? `<span class="px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">I+II</span>`
+          : o.face1
+            ? `<span class="px-1 py-0.5 rounded bg-sky-100 text-sky-800 font-semibold text-[10px]">I</span>`
+            : `<span class="px-1 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold text-[10px]">II</span>`;
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-1 px-1.5 font-bold text-slate-900">${o.id}</td>
+            <td class="py-1 px-1">${faceBadge}</td>
+            <td class="py-1 px-1.5">${o.Hz.toFixed(4)}</td>
+            <td class="py-1 px-1.5">${o.HD.toFixed(3)}</td>
+            <td class="py-1 px-1.5 text-[10px] text-slate-600">${o.prismConst.toFixed(1)}mm / ${o.targetHeight.toFixed(2)}m</td>
+            <td class="py-1 px-1 text-right">
+              <button onclick="deleteObservation('${o.id}')" class="text-rose-600 hover:text-rose-800 font-bold px-1" title="Poista havainto">×</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    /***********************************************************************
+     * 12. VAIHE 5: VAPAAN ASEMAPISTEEN TASOITUSLASKENTA & PORTAITTAINEN VIHJE
+     ***********************************************************************/
+    function toggleObservationActive(id) {
+      const obs = tsState.observations.find(o => o.id === id);
+      if (obs) {
+        obs.active = !obs.active;
+        tsState.stationAccepted = false;
+        calculateFreeStation();
+      }
+    }
+
+    function revealDetailedHints() {
+      tsState.showDetailedHints = true;
+      playBeep(1200, 0.05);
+      calculateFreeStation();
+    }
+
+    function solve3x3(A, b) {
+      const M = [
+        [A[0][0], A[0][1], A[0][2], b[0]],
+        [A[1][0], A[1][1], A[1][2], b[1]],
+        [A[2][0], A[2][1], A[2][2], b[2]]
+      ];
+
+      for (let i = 0; i < 3; i++) {
+        let maxRow = i;
+        for (let k = i + 1; k < 3; k++) {
+          if (Math.abs(M[k][i]) > Math.abs(M[maxRow][i])) maxRow = k;
+        }
+        if (Math.abs(M[maxRow][i]) < 1e-12) return null;
+        [M[i], M[maxRow]] = [M[maxRow], M[i]];
+
+        for (let k = i + 1; k < 3; k++) {
+          const factor = M[k][i] / M[i][i];
+          for (let j = i; j <= 3; j++) {
+            M[k][j] -= factor * M[i][j];
+          }
+        }
+      }
+
+      const x = [0, 0, 0];
+      for (let i = 2; i >= 0; i--) {
+        let sum = M[i][3];
+        for (let j = i + 1; j < 3; j++) {
+          sum -= M[i][j] * x[j];
+        }
+        x[i] = sum / M[i][i];
+      }
+      return x;
+    }
+
+    function calculateFreeStation() {
+      const banner = document.getElementById("calcStatusBanner");
+      const titleEl = document.getElementById("calcStatusTitle");
+      const stdBadge = document.getElementById("calcStdDevBadge");
+      const resBody = document.getElementById("residualsTableBody");
+      const diagBox = document.getElementById("diagnosticBox");
+
+      document.getElementById("resStnName").textContent = tsState.stationName;
+
+      const matchedAll = tsState.observations.map(obs => {
+        const pt = tsState.jobPoints.find(p => p.id === obs.id);
+        return pt ? { obs, pt } : null;
+      }).filter(Boolean);
+
+      const activePairs = matchedAll.filter(m => m.obs.active);
+
+      if (activePairs.length < 2) {
+        tsState.stationCalculated = false;
+        banner.className = "rounded-lg p-2 text-xs font-bold flex items-center justify-between border bg-rose-100 border-rose-300 text-rose-900";
+        titleEl.textContent = "❌ Liian vähän aktiivisia liitospisteitä (tarvitaan väh. 2)!";
+        stdBadge.textContent = "---";
+        document.getElementById("resN").textContent = "---.---";
+        document.getElementById("resE").textContent = "---.---";
+        document.getElementById("resH").textContent = "---.---";
+        document.getElementById("resZ0").textContent = "---.---- g";
+        document.getElementById("errN").textContent = "";
+        document.getElementById("errE").textContent = "";
+        document.getElementById("errH").textContent = "";
+
+        resBody.innerHTML = matchedAll.map(({ obs }) => `
+          <tr>
+            <td class="py-1 px-1"><input type="checkbox" ${obs.active ? "checked" : ""} onchange="toggleObservationActive('${obs.id}')" /></td>
+            <td class="py-1 px-1 font-bold">${obs.id}</td>
+            <td colspan="5" class="py-1 px-1 text-slate-400 font-sans">Mittaa vähintään 2 liitospistettä</td>
+          </tr>
+        `).join("");
+
+        diagBox.className = "rounded-lg p-2.5 text-xs border bg-amber-50 border-amber-200 text-amber-900";
+        diagBox.innerHTML = "Siirry vaiheeseen <strong>4. Mittaus</strong> ja mittaa havainnot vähintään kahdelle (suositeltavasti 3–4) liitospisteelle.";
+        return;
+      }
+
+      // 1. Analyyttinen alkuarvo (2D Helmert)
+      const n = activePairs.length;
+      const localPts = activePairs.map(({ obs, pt }) => {
+        const rad = obs.Hz * GON_TO_RAD;
+        return {
+          x: obs.HD * Math.cos(rad),
+          y: obs.HD * Math.sin(rad),
+          N: pt.N,
+          E: pt.E
+        };
+      });
+
+      const meanX = localPts.reduce((s, p) => s + p.x, 0) / n;
+      const meanY = localPts.reduce((s, p) => s + p.y, 0) / n;
+      const meanN = localPts.reduce((s, p) => s + p.N, 0) / n;
+      const meanE = localPts.reduce((s, p) => s + p.E, 0) / n;
+
+      let sumSin = 0;
+      let sumCos = 0;
+      for (const p of localPts) {
+        const dx = p.x - meanX;
+        const dy = p.y - meanY;
+        const dN = p.N - meanN;
+        const dE = p.E - meanE;
+        sumSin += dx * dE - dy * dN;
+        sumCos += dx * dN + dy * dE;
+      }
+
+      let z0Rad = Math.atan2(sumSin, sumCos);
+      let N0 = meanN - (meanX * Math.cos(z0Rad) - meanY * Math.sin(z0Rad));
+      let E0 = meanE - (meanX * Math.sin(z0Rad) + meanY * Math.cos(z0Rad));
+
+      // 2. Gauss-Newton pienimmän neliösumman tasoitus (painotus huomioi KA I+II toiston)
+      for (let iter = 0; iter < 12; iter++) {
+        const Nmat = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        const uVec = [0, 0, 0];
+
+        for (const { obs, pt } of activePairs) {
+          const dN = pt.N - N0;
+          const dE = pt.E - E0;
+          const calcD = Math.hypot(dN, dE) || 0.001;
+          const calcAz = Math.atan2(dE, dN);
+          const obsWeight = (obs.face1 && obs.face2) ? 2.0 : 1.0;
+
+          const l_d = obs.HD - calcD;
+          const a_d = [-dN / calcD, -dE / calcD, 0];
+
+          for (let r = 0; r < 3; r++) {
+            uVec[r] += obsWeight * a_d[r] * l_d;
+            for (let c = 0; c < 3; c++) {
+              Nmat[r][c] += obsWeight * a_d[r] * a_d[c];
+            }
+          }
+
+          let dAngle = (obs.Hz * GON_TO_RAD + z0Rad) - calcAz;
+          while (dAngle > Math.PI) dAngle -= 2 * Math.PI;
+          while (dAngle < -Math.PI) dAngle += 2 * Math.PI;
+          const l_az = dAngle * calcD;
+          const a_az = [dE / calcD, -dN / calcD, -calcD];
+
+          for (let r = 0; r < 3; r++) {
+            uVec[r] += obsWeight * a_az[r] * l_az;
+            for (let c = 0; c < 3; c++) {
+              Nmat[r][c] += obsWeight * a_az[r] * a_az[c];
+            }
+          }
+        }
+
+        const dx = solve3x3(Nmat, uVec);
+        if (!dx) break;
+        N0 += dx[0];
+        E0 += dx[1];
+        z0Rad += dx[2];
+        if (Math.hypot(dx[0], dx[1]) < 1e-7 && Math.abs(dx[2]) < 1e-9) break;
+      }
+
+      let finalSin = 0;
+      let finalCos = 0;
+      for (const { obs, pt } of activePairs) {
+        const dN = pt.N - N0;
+        const dE = pt.E - E0;
+        const calcD = Math.hypot(dN, dE) || 0.001;
+        const obsWeight = (obs.face1 && obs.face2) ? 2.0 : 1.0;
+        const diffRad = Math.atan2(dE, dN) - obs.Hz * GON_TO_RAD;
+        finalSin += obsWeight * calcD * Math.sin(diffRad);
+        finalCos += obsWeight * calcD * Math.cos(diffRad);
+      }
+      z0Rad = Math.atan2(finalSin, finalCos);
+      const z0Gon = normGon(z0Rad * RAD_TO_GON);
+
+      // 3. Korkeuden H0 laskenta
+      let sumWeightedH = 0;
+      let sumHWeights = 0;
+      for (const { obs, pt } of activePairs) {
+        const dH_meas = obs.SD * Math.cos(obs.V * GON_TO_RAD);
+        const hVal = pt.H + obs.targetHeight - dH_meas - tsState.instHeight;
+        const w = (obs.face1 && obs.face2) ? 2.0 : 1.0;
+        sumWeightedH += w * hVal;
+        sumHWeights += w;
+      }
+      const H0 = sumWeightedH / sumHWeights;
+
+      // 4. Pisteittäiset jäännösvirheet
+      let sumSqErrMm = 0;
+      let maxAbsResidualMm = 0;
+
+      const residualRows = matchedAll.map(({ obs, pt }) => {
+        const dN = pt.N - N0;
+        const dE = pt.E - E0;
+        const calcHD = Math.hypot(dN, dE);
+        const calcBearing = calcBearingGon(N0, E0, pt.N, pt.E);
+        const obsBearing = normGon(obs.Hz + z0Gon);
+
+        const dHD_mm = (obs.HD - calcHD) * 1000;
+        const dHz_mgon = signedGonDiff(obsBearing, calcBearing) * 1000;
+
+        const obsN = N0 + obs.HD * Math.cos(obsBearing * GON_TO_RAD);
+        const obsE = E0 + obs.HD * Math.sin(obsBearing * GON_TO_RAD);
+        const vN_mm = (obsN - pt.N) * 1000;
+        const vE_mm = (obsE - pt.E) * 1000;
+
+        const dH_meas = obs.SD * Math.cos(obs.V * GON_TO_RAD);
+        const hFromPt = pt.H + obs.targetHeight - dH_meas - tsState.instHeight;
+        const vH_mm = (hFromPt - H0) * 1000;
+
+        const radialErrMm = Math.hypot(vN_mm, vE_mm);
+        if (obs.active) {
+          sumSqErrMm += vN_mm * vN_mm + vE_mm * vE_mm;
+          maxAbsResidualMm = Math.max(maxAbsResidualMm, radialErrMm, Math.abs(vH_mm));
+        }
+
+        return {
+          obs,
+          pt,
+          dHD_mm,
+          dHz_mgon,
+          vN_mm,
+          vE_mm,
+          vH_mm,
+          radialErrMm
+        };
+      });
+
+      const dof = Math.max(1, 2 * activePairs.length - 3);
+      const s0_mm = Math.sqrt(sumSqErrMm / dof);
+
+      tsState.stationCalculated = true;
+      const scen = SCENARIOS[currentScenarioIndex];
+      const trueStn = scen.trueStation;
+      const trueErrN_mm = (N0 - trueStn.N) * 1000;
+      const trueErrE_mm = (E0 - trueStn.E) * 1000;
+
+      const isZeroMode = Math.abs(tsState.instHeight) < 0.0005;
+      const expectedTrueH = isZeroMode ? (trueStn.H + trueStn.instHeight) : trueStn.H;
+      const trueErrH_mm = (H0 - expectedTrueH) * 1000;
+
+      document.getElementById("resZ0").textContent = `${z0Gon.toFixed(4)} gon`;
+      document.getElementById("resN").textContent = N0.toFixed(3);
+      document.getElementById("resE").textContent = E0.toFixed(3);
+      document.getElementById("resH").textContent = H0.toFixed(3);
+
+      const cleanZero = (val) => (Math.abs(val) < 0.05 ? 0 : val);
+      const fmtDiff = (mm) => {
+        const v = cleanZero(mm);
+        return `Poikkeama: ${v >= 0 ? "+" : ""}${v.toFixed(1)} mm`;
+      };
+
+      // Todellinen koordinaattipoikkeama näytetään vasta, kun opiskelija on hyväksynyt orientoinnin (F4: VALMIS)
+      if (tsState.stationAccepted) {
+        document.getElementById("errN").textContent = fmtDiff(trueErrN_mm);
+        document.getElementById("errE").textContent = fmtDiff(trueErrE_mm);
+        document.getElementById("errH").textContent = fmtDiff(trueErrH_mm) + (isZeroMode ? " (akseli)" : "");
+      } else {
+        document.getElementById("errN").textContent = "Tosi-ero piilossa";
+        document.getElementById("errE").textContent = "Tosi-ero piilossa";
+        document.getElementById("errH").textContent = "Kuittaa F4: VALMIS";
+      }
+
+      stdBadge.textContent = `s₀ = ±${cleanZero(s0_mm).toFixed(1)} mm`;
+
+      // Täytetään jäännösvirhetaulukko (5.0 mm korostusraja vastaa otsikkoa)
+      resBody.innerHTML = residualRows.map(r => {
+        const isBad = r.obs.active && (Math.abs(r.dHD_mm) > 5.0 || r.radialErrMm > 5.0 || Math.abs(r.vH_mm) > 5.0);
+        const rowClass = !r.obs.active
+          ? "opacity-45 bg-slate-100 line-through"
+          : isBad
+            ? "bg-rose-50 text-rose-900 font-semibold"
+            : "hover:bg-slate-50";
+
+        const sign = (val) => {
+          const v = cleanZero(val);
+          return (v >= 0 ? "+" : "") + v.toFixed(1);
+        };
+        const kaText = (r.obs.face1 && r.obs.face2) ? "I+II" : r.obs.face1 ? "I" : "II";
+        return `
+          <tr class="${rowClass}">
+            <td class="py-1 px-1 text-center">
+              <input type="checkbox" ${r.obs.active ? "checked" : ""} onchange="toggleObservationActive('${r.obs.id}')" class="cursor-pointer" />
+            </td>
+            <td class="py-1 px-1 font-bold">${r.obs.id}</td>
+            <td class="py-1 px-1 text-[10px]">${kaText}</td>
+            <td class="py-1 px-1 ${Math.abs(r.dHD_mm) > 5.0 ? 'text-rose-600 font-bold' : ''}">${sign(r.dHD_mm)}</td>
+            <td class="py-1 px-1 ${Math.abs(r.dHz_mgon) > 5.0 ? 'text-rose-600 font-bold' : ''}">${sign(r.dHz_mgon)}</td>
+            <td class="py-1 px-1 ${r.radialErrMm > 5.0 ? 'text-rose-600 font-bold' : ''}">${sign(r.vN_mm)} / ${sign(r.vE_mm)}</td>
+            <td class="py-1 px-1 ${Math.abs(r.vH_mm) > 5.0 ? 'text-rose-600 font-bold' : ''}">${sign(r.vH_mm)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      // 5. Harjoitus 3 (Vikapähkinä): vaaditaan että kaikki 4 pistettä on mitattu ennen poistoa
+      const missingPtsInVikapahkina = (currentScenarioIndex === 2 && matchedAll.length < scen.controlPoints.length);
+
+      const diagCount = buildPedagogicalDiagnostics(
+        residualRows,
+        trueErrN_mm,
+        trueErrE_mm,
+        trueErrH_mm,
+        maxAbsResidualMm,
+        s0_mm,
+        missingPtsInVikapahkina
+      );
+
+      if (!missingPtsInVikapahkina && maxAbsResidualMm <= 5.0 && Math.hypot(trueErrN_mm, trueErrE_mm) <= 6.0 && Math.abs(trueErrH_mm) <= 6.0 && diagCount === 0) {
+        banner.className = "rounded-lg p-2 text-xs font-bold flex items-center justify-between border bg-emerald-100 border-emerald-400 text-emerald-950";
+        titleEl.textContent = "✓ ORIENTOINNIN TARKKUUS HYVÄKSYTTÄVÄ (Tavoitetarkkuudessa)";
+      } else if (maxAbsResidualMm <= 15.0 && Math.hypot(trueErrN_mm, trueErrE_mm) <= 15.0 && Math.abs(trueErrH_mm) <= 15.0) {
+        banner.className = "rounded-lg p-2 text-xs font-bold flex items-center justify-between border bg-amber-100 border-amber-400 text-amber-950";
+        titleEl.textContent = "⚠️ HUOMIO: Jäännösvirheissä, havaintomäärässä tai korjauksissa poikkeamaa";
+      } else {
+        banner.className = "rounded-lg p-2 text-xs font-bold flex items-center justify-between border bg-rose-100 border-rose-400 text-rose-950";
+        titleEl.textContent = "❌ HYLÄTTY: Jäännösvirheet ylittävät sallitun rajan!";
+      }
+    }
+
+    function buildPedagogicalDiagnostics(rows, errN, errE, errH, maxAbsResidualMm, s0_mm, missingPtsInVikapahkina) {
+      const diagBox = document.getElementById("diagnosticBox");
+      const detailedMessages = [];
+      const generalCategories = new Set();
+      const scen = SCENARIOS[currentScenarioIndex];
+
+      if (missingPtsInVikapahkina) {
+        generalCategories.add("Kaikkia liitospisteitä ei ole vielä mitattu");
+        detailedMessages.push(`<strong>Mittaa kaikki ${scen.controlPoints.length} liitospistettä ensin:</strong> Vikapähkinä-harjoituksessa kaikki neljä pistettä tulee mitata, jotta karkea lähtöpistevirhe voidaan paikantaa luotettavasti jäännösvirheiden avulla.`);
+      }
+
+      const activeRows = rows.filter(r => r.obs.active);
+
+      for (const item of activeRows) {
+        const refPt = scen.controlPoints.find(cp => cp.id === item.pt.id);
+        if (refPt) {
+          const coordDiffMm = Math.hypot(item.pt.N - refPt.N, item.pt.E - refPt.E, item.pt.H - refPt.H) * 1000;
+          if (coordDiffMm > 2.0) {
+            generalCategories.add("Lähtökoordinaattivirhe (Vaihe 2)");
+            detailedMessages.push(`<strong>Piste ${item.pt.id} (Lähtökoordinaattivirhe Vaiheessa 2):</strong> Syötetyt koordinaatit poikkeavat maastokortin koordinaattiluettelosta (${coordDiffMm.toFixed(0)} mm)!`);
+          }
+        }
+
+        const m = item.obs.metaError;
+        if (!m) continue;
+
+        if (m.wrongPointAimed) {
+          generalCategories.add("Karkea virhe: väärä tähtäyspiste");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (Karkea virhe – väärä tähtäyspiste):</strong> Tallensit havainnon pisteelle <strong>${m.recordedAsId}</strong>, mutta mittauskaukoputki osoitti maastossa pisteeseen <strong>${m.aimedPhysicalId}</strong>!`);
+        }
+        if (m.faceMismatch) {
+          generalCategories.add("Kojeasentojen (I- ja II-asento) välinen poikkeama");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (I- ja II-asento eivät vastaa toisiaan):</strong> Kahden kojeasennon havaintojen välillä on suuri ero. Tarkista että molemmissa kojeasennoissa on tähdätty samaan pisteeseen.`);
+        }
+        if (m.beforeSettlement) {
+          generalCategories.add("Jalustan painuminen kesken orientoinnin (havainto ennen uudelleentasausta)");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (Mitattu ennen jalustan painumista):</strong> Jalusta painui jään/lumen päällä kesken mittauksen. Vaikka koje tasattiin uudelleen kompensaattorin toiminta-alueelle, kompensaattori korjaa vain pienen pystyakselin kallistuman kulmalukemiin – se ei korjaa jalustan painumisesta aiheutunutta vaaka-akselin korkeus-, taso- ja kiertymäsiirtymää. Mittaa piste <strong>${item.obs.id}</strong> uudelleen Vaiheessa 4!`);
+        }
+        if (m.atrTapeBiasUsed) {
+          generalCategories.add("Epätarkka tähtäys heijastintarraan (Autolock)");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (Autolockin epäkeskinen lukitus heijastintarraan):</strong> Käytit Autolockia (ATR) heijastintarraan, jolloin tähtäys lukittui ${(m.aimOffsetGon * 1000).toFixed(1)} mgon sivuun tarran keskipisteestä. Heijastintarraan tähdättäessä viivaristikko tulee kohdistaa täsmäruuveilla (≤ 1.5 mgon)!`);
+        } else if (m.aimOffsetGon > 0.0015) {
+          generalCategories.add("Epätarkka tähtäys viivaristikolla");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (Epätarkka tähtäys):</strong> Viivaristikon keskipiste jäi ${(m.aimOffsetGon * 1000).toFixed(1)} mgon sivuun tähyksen keskipisteestä (tavoite ≤ 1.5 mgon). Kohdista kaukoputkinäkymässä täsmäruuveilla.`);
+        }
+        if (Math.abs(m.enteredConst - m.trueConst) > 0.2) {
+          generalCategories.add("Systemaattinen virhe: prismavakio");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (Systemaattinen virhe – väärä prismavakio):</strong> Mittasit prismavakiolla <span class="mono">${m.enteredConst.toFixed(1)} mm</span>, mutta tähyksen vakio on <span class="mono">${m.trueConst.toFixed(1)} mm</span>. Tämä aiheutti ${(m.enteredConst - m.trueConst).toFixed(1)} mm vakiovirheen etäisyyteen.`);
+        }
+        if (m.rlOnPrismWarning) {
+          generalCategories.add("Systemaattinen virhe: väärä mittaustapa (IR/DR)");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (Systemaattinen virhe – väärä mittaustapa):</strong> Mittasit lasiprismaan <em>Pintamittaus (DR)</em> -tilalla! Käytä lasiprismoille <em>Prismallinen (IR)</em> -mittaustapaa.`);
+        }
+        if (Math.abs(m.enteredTargetH - m.trueTargetH) > 0.002) {
+          generalCategories.add("Systemaattinen virhe: tähyskorkeus m");
+          detailedMessages.push(`<strong>Piste ${item.obs.id} (Väärä tähyskorkeus m):</strong> Syötit tähyskorkeudeksi <span class="mono">m = ${m.enteredTargetH.toFixed(3)} m</span>, mutta tähyksen korkeus on <span class="mono">${m.trueTargetH.toFixed(3)} m</span>. Tämä aiheuttaa virheen trigonometriseen korkeudenmittaukseen (<span class="mono">vH</span>).`);
+        }
+        if (Math.abs(m.enteredPpm - m.truePpm) > 2.0) {
+          generalCategories.add("Systemaattinen sääkorjausvirhe (ppm)");
+          detailedMessages.push(`<strong>Systemaattinen sääkorjausvirhe (Vaihe 1):</strong> Havainnot mitattiin sääkorjauksella <span class="mono">${m.enteredPpm.toFixed(1)} ppm</span>, kun todellinen sää vastaa arvoa <span class="mono">${m.truePpm.toFixed(1)} ppm</span>. <em>Huom: Sääkorjauksen muuttaminen jälkikäteen ei muuta jo tallennettuja havaintoja – korjaa sää Vaiheessa 1 ja mittaa pisteet uudelleen!</em>`);
+        }
+        if (m.disturbedPoint) {
+          generalCategories.add("Karkea lähtöpistevirhe (liikkunut kiintopiste)");
+          detailedMessages.push(`<strong>Karkea lähtöpistevirhe pisteellä ${item.obs.id}:</strong> Pisteen ${item.obs.id} jäännösvirhe poikkeaa selvästi muista. Kiintopiste on liikkunut maastossa! Poista rasti pisteen <strong>${item.obs.id}</strong> kohdalta yllä olevasta taulukosta.`);
+        }
+      }
+
+      const isZeroMode = Math.abs(tsState.instHeight) < 0.0005;
+      if (!isZeroMode && Math.abs(tsState.instHeight - scen.trueStation.instHeight) > 0.002) {
+        generalCategories.add("Virheellinen kojekorkeus i (Vaihe 3)");
+        detailedMessages.push(`<strong>Virheellinen kojekorkeus i (Vaihe 3):</strong> Syötit kojekorkeudeksi <span class="mono">${tsState.instHeight.toFixed(3)} m</span>, joka ei ole <span class="mono">0.000 m</span> eikä vastaa taskumitalla vaaka-akselille mitattua arvoa (<span class="mono">${scen.trueStation.instHeight.toFixed(3)} m</span>). Tämä aiheuttaa asemapisteen korkeuteen <span class="mono">H</span> ${(scen.trueStation.instHeight - tsState.instHeight > 0 ? "-" : "+")}${Math.abs((scen.trueStation.instHeight - tsState.instHeight) * 1000).toFixed(0)} mm virheen.`);
+      }
+
+      if (detailedMessages.length === 0 && (maxAbsResidualMm > 5.0 || Math.hypot(errN, errE) > 6.0 || Math.abs(errH) > 6.0)) {
+        generalCategories.add("Jäännösvirhe ylittää ohjeellisen rajan");
+        detailedMessages.push(`<strong>Suuri jäännösvirhe tasoituslaskennassa:</strong> Suurin jäännösvirhe on <span class="mono">${maxAbsResidualMm.toFixed(1)} mm</span> (<span class="mono">s₀ = ±${s0_mm.toFixed(1)} mm</span>). Tarkista mitattujen pisteiden kohdistus ja lähtötiedot.`);
+      }
+
+      const uniqueMsgs = [...new Set(detailedMessages)];
+      const twoFaceCount = activeRows.filter(r => r.obs.face1 && r.obs.face2).length;
+
+      if (uniqueMsgs.length === 0) {
+        const twoFaceNote = twoFaceCount > 0
+          ? `<div class="mt-1 text-emerald-900">✓ <strong>Kahden kojeasennon (I+II) etu:</strong> Mitattiin ${twoFaceCount} pisteellä molemmissa kojeasennoissa, mikä eliminoi kojeen akselivirheet ja pienentää satunnaisvirhettä.</div>`
+          : "";
+        const winterReobsNote = tsState.winterSettlementTriggered
+          ? `<div class="mt-1 text-emerald-900">✓ <strong>Jalustan painumisen hallinta:</strong> Tasasit kojeen uudelleen ja mittasit ennen painumista otetut pisteet uudelleen, jolloin kaikki orientointihavainnot vastaavat samaa, vakaata kojeasemaa.</div>`
+          : "";
+        diagBox.className = "rounded-lg p-2.5 text-xs border bg-emerald-50 border-emerald-300 text-emerald-950";
+        diagBox.innerHTML = `
+          <div class="font-bold mb-1">✓ Orientointi suoritettu tavoitetarkkuuden rajoissa.</div>
+          <div>Mittaustuloksissa ei ilmene karkeita tai systemaattisia virheitä. Jäljellä olevat pienet jäännösvirheet johtuvat mittauksen luonnollisista satunnaisista virheistä, ja asemapisteen <strong>${tsState.stationName}</strong> koordinaatit sekä kiertymä <span class="mono">t₀</span> on määritetty luotettavasti.</div>
+          ${twoFaceNote}
+          ${winterReobsNote}
+        `;
+      } else if (!tsState.showDetailedHints) {
+        diagBox.className = "rounded-lg p-2.5 text-xs border bg-amber-50 border-amber-300 text-amber-950 space-y-1.5";
+        diagBox.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-bold text-rose-900">🔍 Havaintojen virheanalyysi (Taso 1):</span>
+            <button onclick="revealDetailedHints()" class="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold transition shrink-0">
+              💡 Näytä tarkempi vihje (pisteet ja syyt)
+            </button>
+          </div>
+          <p>Tutki yllä olevan taulukon jäännösvirheitä (<span class="mono">v_s, v_suunta, vN/vE, vH</span>). Tuloksissa havaittiin seuraavat poikkeamatyypit:</p>
+          <ul class="list-disc pl-4 space-y-0.5 font-medium">
+            ${[...generalCategories].map(c => `<li>${c}</li>`).join("")}
+          </ul>
+        `;
+      } else {
+        diagBox.className = "rounded-lg p-2.5 text-xs border bg-amber-50 border-amber-300 text-amber-950 space-y-1";
+        diagBox.innerHTML = `
+          <div class="font-bold text-rose-900">🔍 Yksityiskohtainen virhediagnoosi (Taso 2):</div>
+          <ul class="list-disc pl-4 space-y-1">
+            ${uniqueMsgs.map(m => `<li>${m}</li>`).join("")}
+          </ul>
+        `;
+      }
+
+      return uniqueMsgs.length;
+    }
+
+    /***********************************************************************
+     * 13. KARKEAN TÄHTÄIMEN, KAUKOPUTKINÄKYMÄN JA KARTAN PIIRTÄMINEN
+     ***********************************************************************/
+    function setZoom(z) {
+      tsState.zoom = z;
+      lastInspectorSignature = "";
+      const b1 = document.getElementById("zoom1Btn");
+      const b8 = document.getElementById("zoom8Btn");
+      const scopeContainer = document.getElementById("scopeContainer");
+      const hudModeLabel = document.getElementById("hudModeLabel");
+
+      if (z === 1) {
+        b1.className = "px-2.5 py-1 rounded text-xs font-semibold bg-amber-500 text-slate-950 transition";
+        b8.className = "px-2.5 py-1 rounded text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition";
+        if (scopeContainer) {
+          scopeContainer.classList.remove("rounded-full");
+          scopeContainer.classList.add("rounded-2xl");
+        }
+        if (hudModeLabel) hudModeLabel.textContent = "📐 Karkea tähtäin";
+      } else {
+        b8.className = "px-2.5 py-1 rounded text-xs font-semibold bg-amber-500 text-slate-950 transition";
+        b1.className = "px-2.5 py-1 rounded text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition";
+        if (scopeContainer) {
+          scopeContainer.classList.remove("rounded-2xl");
+          scopeContainer.classList.add("rounded-full");
+        }
+        if (hudModeLabel) hudModeLabel.textContent = "🔭 Kaukoputki";
+      }
+    }
+
+    function nudgeAngle(dHz, dV) {
+      const factor = tsState.zoom === 8 ? 0.25 : 4.0;
+      tsState.atrLockedOn = null;
+      invalidateLastMeasurement();
+      tsState.scopeHz = normGon(tsState.scopeHz + dHz * factor);
+      if (tsState.face === 1) {
+        tsState.scopeV = Math.max(60.0, Math.min(140.0, tsState.scopeV + dV * factor));
+      } else {
+        tsState.scopeV = Math.max(260.0, Math.min(340.0, tsState.scopeV - dV * factor));
+      }
+    }
+
+    function setupScopeInteraction() {
+      const canvas = document.getElementById("scopeCanvas");
+      let isDragging = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      const getPos = (e) => {
+        if (e.touches && e.touches.length > 0) {
+          return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+      };
+
+      const startDrag = (e) => {
+        isDragging = true;
+        tsState.atrLockedOn = null;
+        const pos = getPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+      };
+
+      const moveDrag = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        const dx = pos.x - lastX;
+        const dy = pos.y - lastY;
+        lastX = pos.x;
+        lastY = pos.y;
+
+        invalidateLastMeasurement();
+        const sensitivity = tsState.zoom === 8 ? 0.0020 : 0.028;
+        tsState.scopeHz = normGon(tsState.scopeHz - dx * sensitivity);
+        if (tsState.face === 1) {
+          tsState.scopeV = Math.max(70, Math.min(130, tsState.scopeV - dy * sensitivity));
+        } else {
+          tsState.scopeV = Math.max(270, Math.min(330, tsState.scopeV + dy * sensitivity));
+        }
+      };
+
+      const endDrag = () => {
+        isDragging = false;
+      };
+
+      canvas.addEventListener("mousedown", startDrag);
+      window.addEventListener("mousemove", moveDrag);
+      window.addEventListener("mouseup", endDrag);
+
+      canvas.addEventListener("touchstart", startDrag, { passive: false });
+      window.addEventListener("touchmove", moveDrag, { passive: false });
+      window.addEventListener("touchend", endDrag);
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeAboutModal();
+          return;
+        }
+        if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+        if (tsState.faceAnim && tsState.faceAnim.active) return;
+        if (e.key === "ArrowLeft") { e.preventDefault(); nudgeAngle(-0.0020, 0); }
+        if (e.key === "ArrowRight") { e.preventDefault(); nudgeAngle(0.0020, 0); }
+        if (e.key === "ArrowUp") { e.preventDefault(); nudgeAngle(0, -0.0020); }
+        if (e.key === "ArrowDown") { e.preventDefault(); nudgeAngle(0, 0.0020); }
+      });
+    }
+
+    function setupMapInteraction() {
+      const mapCanvas = document.getElementById("mapCanvas");
+      mapCanvas.addEventListener("click", (e) => {
+        const rect = mapCanvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+
+        const scen = SCENARIOS[currentScenarioIndex];
+        const stn = scen.trueStation;
+        const maxRange = 200;
+
+        const clickE = stn.E + (x - 0.5) * 2 * maxRange;
+        const clickN = stn.N + (0.5 - y) * 2 * maxRange;
+
+        let nearest = null;
+        let minDist = Infinity;
+        for (const tgt of trueTargetsGeometry) {
+          const d = Math.hypot(tgt.trueN - clickN, tgt.trueE - clickE);
+          if (d < minDist) {
+            minDist = d;
+            nearest = tgt;
+          }
+        }
+
+        tsState.atrLockedOn = null;
+        invalidateLastMeasurement();
+        if (nearest && minDist < 42) {
+          const jitterHz = (Math.random() > 0.5 ? 1 : -1) * (0.035 + Math.random() * 0.045);
+          const jitterV = (Math.random() > 0.5 ? 1 : -1) * (0.018 + Math.random() * 0.025);
+          setScopeFromEffectiveAim(nearest.trueHz + jitterHz, nearest.trueV + jitterV);
+          playBeep(950, 0.04);
+        } else {
+          const bearing = calcBearingGon(stn.N, stn.E, clickN, clickE);
+          setScopeFromEffectiveAim(normGon(bearing - stn.trueZ0), 100.0);
+        }
+      });
+    }
+
+    function animationLoop() {
+      updateFaceAnimation();
+      drawScope();
+      drawMap();
+      updateScopeHUDAndInspector();
+      requestAnimationFrame(animationLoop);
+    }
+
+    function updateScopeHUDAndInspector() {
+      document.getElementById("hudHz").textContent = tsState.scopeHz.toFixed(4);
+      document.getElementById("hudV").textContent = tsState.scopeV.toFixed(4);
+
+      const liveHz = document.getElementById("liveHzDisplay");
+      const liveV = document.getElementById("liveVDisplay");
+      if (liveHz) liveHz.textContent = `${tsState.scopeHz.toFixed(4)} gon`;
+      if (liveV) liveV.textContent = `${tsState.scopeV.toFixed(4)} gon`;
+
+      const aimed = getAimedTarget();
+      const distractor = getDistractorGeometry();
+      const lockBadge = document.getElementById("lockBadge");
+      const hintEl = document.getElementById("scopeTargetHint");
+      const inspBox = document.getElementById("targetInspectorContent");
+      const distBadge = document.getElementById("targetInspectorBadge");
+
+      const fovHalfGon = tsState.zoom === 8 ? 0.22 : 2.5;
+
+      // Häiriöheijastin
+      if (distractor && distractor.angDist < 0.04) {
+        lockBadge.className = "text-[11px] px-2 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40";
+        lockBadge.textContent = `⚠️ VALELUKITUS: ${distractor.label}!`;
+        hintEl.textContent = `Varoitus: Tähtäys on kohteessa ${distractor.label}, ei tähyksessä!`;
+        const sig = `dist:${distractor.label}`;
+        if (lastInspectorSignature !== sig) {
+          lastInspectorSignature = sig;
+          inspBox.innerHTML = `
+            <div class="bg-rose-950/60 border border-rose-800 rounded p-2 text-rose-200 text-xs">
+              ⚠️ <strong>Häiriöheijastus (${distractor.label})!</strong> Autolock tai tähtäys osui pisteen ${distractor.nearPointId} lähellä olevaan heijastimeen. Käännä kaukoputkea sivuun kohti varsinaista tähystä!
+            </div>
+          `;
+        }
+        return;
+      }
+
+      if (aimed && aimed.angDist < fovHalfGon) {
+        const tgt = aimed.tgt;
+        distBadge.textContent = `Suuntakulma ~${Math.round(tgt.bearingGon)} gon`;
+
+        if (aimed.angDist <= 0.0015) {
+          lockBadge.className = "text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+          lockBadge.textContent = `✓ TARKKA KOHDISTUS (${(aimed.angDist * 1000).toFixed(1)} mgon)`;
+          hintEl.textContent = tsState.zoom === 8 ? `Piste ${tgt.id} viivaristikon keskellä` : `Vaihda Kaukoputkeen lukeaksesi tähyksen tiedot`;
+        } else if (aimed.angDist <= 0.0060) {
+          lockBadge.className = "text-[11px] px-2 py-0.5 rounded-full font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40";
+          lockBadge.textContent = `Kohtalainen kohdistus (${(aimed.angDist * 1000).toFixed(1)} mgon) – Säädä täsmäruuvilla ≤ 1.5 mgon`;
+          hintEl.textContent = `Lähellä keskipistettä – käytä täsmäruuveja`;
+        } else if (aimed.angDist <= 0.045) {
+          lockBadge.className = "text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40";
+          lockBadge.textContent = `⚠️ Epäkeskinen tähtäys (${(aimed.angDist * 1000).toFixed(1)} mgon) – Kohdista keskelle!`;
+          hintEl.textContent = tsState.atrLockedOn === "reflective_tape_biased"
+            ? `ATR lukittui heijastintarrassa hieman sivuun – säädä täsmäruuveilla!`
+            : `Tähtäys reunalla – kohdista viivaristikko täsmäruuveilla`;
+        } else {
+          const atrSupported = tgt.targetKind !== "plain_tape" && aimed.angDist <= 0.14;
+          lockBadge.className = "text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-800 text-slate-300 border border-slate-700";
+          lockBadge.textContent = `Tähys näkökentässä (ATR-alue: ${atrSupported ? "KYLLÄ" : "EI"})`;
+          hintEl.textContent = `Suuntaa kohteeseen ja vaihda kaukoputkeen`;
+        }
+
+        const sig = `tgt:${tgt.id}:z${tsState.zoom}:s${tsState.selectedTargetId}`;
+        if (lastInspectorSignature !== sig) {
+          lastInspectorSignature = sig;
+          const mountLabel = tgt.mountType === "pole"
+            ? "Kartoitussauva"
+            : tgt.mountType === "tripod"
+              ? "Prismasarja kolmijalalla"
+              : tgt.targetKind === "reflective_tape"
+                ? "Heijastintarra seinässä"
+                : "Tarra seinässä (heijastimeton)";
+
+          const modeRequirementNote = tgt.targetKind === "plain_tape"
+            ? `<div class="text-[11px] text-amber-300 bg-amber-950/50 border border-amber-700/60 rounded px-2 py-1 mt-1">⚠️ <strong>Heijastimeton tarra:</strong> Ei voi mitata prismallisena (IR). Käytä <strong>Pintamittaus (DR)</strong> -tilaa ja tähtää käsin!</div>`
+            : tgt.targetKind === "reflective_tape"
+              ? `<div class="text-[11px] text-sky-300 bg-sky-950/50 border border-sky-700/60 rounded px-2 py-1 mt-1">ℹ️ <strong>Heijastintarra:</strong> Voi mitata prismallisena (IR) tai pintamittauksella (DR). Huom: Autolockia käytettäessä tähtäin voi lukittua hieman sivuun!</div>`
+              : "";
+
+          if (tsState.zoom === 8) {
+            inspBox.innerHTML = `
+              <div class="bg-slate-900 px-2.5 py-1.5 rounded border border-slate-800">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-amber-300">Piste: ${tgt.id} <span class="text-[10px] text-slate-400 font-normal">(${mountLabel})</span></span>
+                  <span class="text-[10px] text-slate-400">Valitse piste kojeen valikosta</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="bg-slate-900/70 p-2 rounded border border-slate-800/80">
+                  <span class="text-[10px] text-slate-400 block">Tähystyyppi &amp; Vakio:</span>
+                  <strong class="text-white mono">${tgt.prismType}</strong>
+                </div>
+                <div class="bg-slate-900/70 p-2 rounded border border-slate-800/80">
+                  <span class="text-[10px] text-slate-400 block">Tähyskorkeus m:</span>
+                  <strong class="text-emerald-300 mono text-sm">m = ${tgt.trueTargetH.toFixed(3)} m</strong>
+                </div>
+              </div>
+              ${modeRequirementNote}
+            `;
+          } else {
+            inspBox.innerHTML = `
+              <div class="bg-slate-900/90 border border-amber-500/30 rounded-lg p-2.5 text-slate-300">
+                <div class="font-bold text-amber-300">Tähys näkyvissä (${mountLabel})</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">Paina yläreunan <strong>🔭 Kaukoputki</strong> -painiketta lukeaksesi pistetunnuksen, tähyksen tyypin ja tähyskorkeuden <span class="mono">m</span>!</div>
+              </div>
+            `;
+          }
+        }
+      } else {
+        lockBadge.className = "text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-800 text-slate-400 border border-slate-700";
+        lockBadge.textContent = "Ei kohdetta viivaristikossa";
+        hintEl.textContent = "Klikkaa ?-kohdetta kartalla karkeasuuntaukseen";
+        distBadge.textContent = "";
+        if (lastInspectorSignature !== "empty") {
+          lastInspectorSignature = "empty";
+          inspBox.innerHTML = `
+            <div class="text-slate-400 py-2 text-center">
+              Näkemäkuvassa ei ole tähystä. Klikkaa jotakin <strong class="text-amber-300">?</strong>-kohdetta yleiskartalla kääntääksesi takymetrin kohti tähystä.
+            </div>
+          `;
+        }
+      }
+    }
+
+    function drawScope() {
+      const canvas = document.getElementById("scopeCanvas");
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      if (canvas.width !== rect.width || canvas.height !== rect.height) {
+        canvas.width = rect.width || 320;
+        canvas.height = rect.height || 320;
+      }
+
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      const fovGon = tsState.zoom === 8 ? 0.36 : 4.5;
+      const pxPerGon = w / fovGon;
+      const anim = tsState.faceAnim;
+      const isFaceAnimating = anim && anim.active;
+      const effHz = isFaceAnimating ? anim.renderEffHz : getEffectiveAimHz();
+      const effV = isFaceAnimating ? anim.renderEffV : getEffectiveAimV();
+
+      // 1. Taivas
+      const isWinter = currentScenarioIndex === 1;
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+      if (isWinter) {
+        skyGrad.addColorStop(0, "#1e293b");
+        skyGrad.addColorStop(1, "#cbd5e1");
+      } else {
+        skyGrad.addColorStop(0, "#0284c7");
+        skyGrad.addColorStop(1, "#bae6fd");
+      }
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // 2. Maaston korkeusprofiili
+      const groundGrad = ctx.createLinearGradient(0, cy - 40, 0, h);
+      if (isWinter) {
+        groundGrad.addColorStop(0, "#e2e8f0");
+        groundGrad.addColorStop(1, "#94a3b8");
+      } else {
+        groundGrad.addColorStop(0, "#3f6212");
+        groundGrad.addColorStop(1, "#14532d");
+      }
+      ctx.fillStyle = groundGrad;
+      ctx.beginPath();
+      const stepPx = 6;
+      for (let x = 0; x <= w + stepPx; x += stepPx) {
+        const hzAtX = normGon(effHz + (x - cx) / pxPerGon);
+        const terrV = getTerrainHorizonV(hzAtX);
+        const terrY = cy + (terrV - effV) * pxPerGon;
+        if (x === 0) ctx.moveTo(x, terrY);
+        else ctx.lineTo(x, terrY);
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Taustapuut
+      ctx.fillStyle = isWinter ? "#64748b" : "#1e3a2f";
+      for (let g = 0; g < 400; g += 8) {
+        const dG = signedGonDiff(g, effHz);
+        if (Math.abs(dG) > fovGon) continue;
+        const nearTarget = trueTargetsGeometry.some(t => Math.abs(signedGonDiff(g, t.trueHz)) < 1.2);
+        if (nearTarget) continue;
+
+        const treeX = cx + dG * pxPerGon;
+        const baseTerrV = getTerrainHorizonV(g);
+        const treeBaseY = cy + (baseTerrV - effV) * pxPerGon;
+        const treeH = (16 + ((g * 17) % 18)) * (tsState.zoom === 8 ? 2.2 : 0.7);
+        ctx.beginPath();
+        ctx.moveTo(treeX - treeH * 0.4, treeBaseY + 2);
+        ctx.lineTo(treeX, treeBaseY - treeH);
+        ctx.lineTo(treeX + treeH * 0.4, treeBaseY + 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 3. Häiriöheijastin (valelukituskohde)
+      const distractor = getDistractorGeometry();
+      if (distractor && Math.abs(distractor.dHz) <= fovGon) {
+        const dx = cx + distractor.dHz * pxPerGon;
+        const dy = cy + distractor.dV * pxPerGon;
+        const dGroundY = cy + (distractor.groundV - effV) * pxPerGon;
+        const s = tsState.zoom === 8 ? 2.2 : 0.65;
+        const postBottomY = Math.max(dGroundY + 6 * s, dy + 42 * s);
+
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = Math.max(1.5, 2.5 * s);
+        ctx.beginPath();
+        ctx.moveTo(dx, dy);
+        ctx.lineTo(dx, postBottomY);
+        ctx.stroke();
+
+        ctx.fillStyle = "#facc15";
+        ctx.strokeStyle = "#dc2626";
+        ctx.lineWidth = Math.max(1.5, 2.5 * s);
+        ctx.beginPath();
+        ctx.moveTo(dx, dy - 12 * s);
+        ctx.lineTo(dx + 13 * s, dy + 10 * s);
+        ctx.lineTo(dx - 13 * s, dy + 10 * s);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 4. Liitospisteiden tähykset
+      for (const tgt of trueTargetsGeometry) {
+        const dHz = signedGonDiff(tgt.trueHz, effHz);
+        if (Math.abs(dHz) > fovGon * 0.9) continue;
+        const dV = tgt.trueV - effV;
+
+        const px = cx + dHz * pxPerGon;
+        const py = cy + dV * pxPerGon;
+        const scale = tsState.zoom === 8 ? 2.8 : 0.65;
+
+        const groundY = cy + (tgt.groundV - effV) * pxPerGon;
+        const standBottomY = Math.max(groundY + 4 * scale, py + 48 * scale);
+
+        ctx.fillStyle = isWinter ? "rgba(100, 116, 139, 0.45)" : "rgba(20, 83, 45, 0.55)";
+        ctx.beginPath();
+        const shadowRx = tgt.mountType === "pole" ? 10 * scale : 24 * scale;
+        ctx.ellipse(px, standBottomY, shadowRx, 4.5 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (tgt.mountType === "wall") {
+          const wallW = 54 * scale;
+          const wallTopY = py - 32 * scale;
+          const wallBottomY = Math.max(standBottomY + 12 * scale, py + 45 * scale);
+          ctx.fillStyle = "#94a3b8";
+          ctx.strokeStyle = "#334155";
+          ctx.lineWidth = 2;
+          ctx.fillRect(px - wallW / 2, wallTopY, wallW, wallBottomY - wallTopY);
+          ctx.strokeRect(px - wallW / 2, wallTopY, wallW, wallBottomY - wallTopY);
+
+          const r = 9.5 * scale;
+          if (tgt.targetKind === "reflective_tape") {
+            ctx.fillStyle = "#e0f2fe";
+            ctx.strokeStyle = "#ea580c";
+            ctx.lineWidth = Math.max(1.5, 1.8 * scale);
+            ctx.fillRect(px - r, py - r, r * 2, r * 2);
+            ctx.strokeRect(px - r, py - r, r * 2, r * 2);
+
+            ctx.fillStyle = "#0284c7";
+            ctx.beginPath();
+            ctx.moveTo(px - r * 0.75, py - r * 0.75);
+            ctx.lineTo(px, py);
+            ctx.lineTo(px - r * 0.75, py + r * 0.75);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(px + r * 0.75, py - r * 0.75);
+            ctx.lineTo(px, py);
+            ctx.lineTo(px + r * 0.75, py + r * 0.75);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = "#f59e0b";
+            ctx.lineWidth = Math.max(1, 1.2 * scale);
+            ctx.beginPath();
+            ctx.arc(px, py, r * 0.35, 0, Math.PI * 2);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = "#f8fafc";
+            ctx.strokeStyle = "#0f172a";
+            ctx.lineWidth = Math.max(1, 1.2 * scale);
+            ctx.fillRect(px - r, py - r, r * 2, r * 2);
+            ctx.strokeRect(px - r, py - r, r * 2, r * 2);
+
+            ctx.fillStyle = "#0f172a";
+            ctx.beginPath();
+            ctx.moveTo(px - r, py - r);
+            ctx.lineTo(px, py);
+            ctx.lineTo(px - r, py);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(px + r, py + r);
+            ctx.lineTo(px, py);
+            ctx.lineTo(px + r, py);
+            ctx.closePath();
+            ctx.fill();
+          }
+        } else if (tgt.mountType === "pole") {
+          // Pelkkä kartoitussauva + prisma (ei kolmijalkaa/tukijalkoja)
+          const poleLen = Math.max(48 * scale, standBottomY - py);
+          const segCount = 6;
+          const segLen = poleLen / segCount;
+          ctx.lineWidth = Math.max(2, 3.2 * scale);
+
+          for (let s = 0; s < segCount; s++) {
+            ctx.strokeStyle = s % 2 === 0 ? "#ef4444" : "#f8fafc";
+            ctx.beginPath();
+            ctx.moveTo(px, py + s * segLen);
+            ctx.lineTo(px, py + (s + 1) * segLen);
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = "#64748b";
+          ctx.beginPath();
+          ctx.moveTo(px - 2 * scale, standBottomY - 4 * scale);
+          ctx.lineTo(px + 2 * scale, standBottomY - 4 * scale);
+          ctx.lineTo(px, standBottomY + 1.5 * scale);
+          ctx.closePath();
+          ctx.fill();
+
+          if (tgt.trueConst === -11.3) {
+            ctx.fillStyle = "#1e293b";
+            ctx.strokeStyle = "#f59e0b";
+            ctx.lineWidth = Math.max(1.5, 2 * scale);
+            ctx.beginPath();
+            ctx.moveTo(px - 7 * scale, py - 9 * scale);
+            ctx.lineTo(px + 7 * scale, py - 9 * scale);
+            ctx.lineTo(px + 10 * scale, py);
+            ctx.lineTo(px + 7 * scale, py + 9 * scale);
+            ctx.lineTo(px - 7 * scale, py + 9 * scale);
+            ctx.lineTo(px - 10 * scale, py);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#38bdf8";
+            ctx.beginPath();
+            ctx.arc(px, py, 4.5 * scale, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            const prRadius = (tgt.trueConst === -17.5 ? 7 : 9.5) * scale;
+            ctx.fillStyle = "#f59e0b";
+            ctx.strokeStyle = "#0f172a";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(px, py, prRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#f43f5e";
+            ctx.beginPath();
+            ctx.arc(px, py, prRadius * 0.62, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          const headY = py + 11 * scale;
+          ctx.strokeStyle = "#eab308";
+          ctx.lineWidth = Math.max(2, 3 * scale);
+          ctx.beginPath();
+          ctx.moveTo(px, headY);
+          ctx.lineTo(px - 20 * scale, standBottomY);
+          ctx.moveTo(px, headY);
+          ctx.lineTo(px + 20 * scale, standBottomY);
+          ctx.moveTo(px, headY);
+          ctx.lineTo(px, standBottomY + 2 * scale);
+          ctx.stroke();
+
+          ctx.fillStyle = "#1e293b";
+          ctx.fillRect(px - 8 * scale, py + 8 * scale, 16 * scale, 4 * scale);
+
+          const prRadius = 10 * scale;
+          ctx.fillStyle = "#1e293b";
+          ctx.strokeStyle = "#f59e0b";
+          ctx.lineWidth = Math.max(1.5, 2.2 * scale);
+          ctx.beginPath();
+          ctx.arc(px, py, prRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "#f43f5e";
+          ctx.beginPath();
+          ctx.arc(px, py, prRadius * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 4B. Tähyksen infokyltti viiteviivalla
+        const isMeasured = tsState.observations.some(o => o.id === tgt.id);
+        if (tsState.zoom === 8) {
+          const boxW = 148;
+          const boxH = 36;
+          const placeLeft = px > cx + 20;
+          const offsetX = placeLeft ? -(boxW + 34) : 34;
+          const boxX = Math.max(14, Math.min(w - boxW - 14, px + offsetX));
+          const boxY = Math.max(24, Math.min(h - boxH - 24, py - 58));
+
+          ctx.strokeStyle = "rgba(250, 204, 21, 0.85)";
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(px + (placeLeft ? -16 : 16), py - 12);
+          ctx.lineTo(placeLeft ? (boxX + boxW) : boxX, boxY + boxH / 2);
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+          ctx.fillRect(boxX, boxY, boxW, boxH);
+          ctx.strokeStyle = "#eab308";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+          ctx.font = "bold 10px monospace";
+          ctx.textAlign = "left";
+          ctx.fillStyle = "#fde047";
+          const constText = tgt.targetKind === "reflective_tape"
+            ? "Heij.tarra 0.0mm"
+            : tgt.targetKind === "plain_tape"
+              ? "Tarra 0.0mm/DR"
+              : `${tgt.trueConst >= 0 ? "+" : ""}${tgt.trueConst.toFixed(1)}mm`;
+          ctx.fillText(`Tp ${tgt.id}: ${constText}`, boxX + 6, boxY + 14);
+          ctx.fillStyle = "#6ee7b7";
+          ctx.fillText(`m = ${tgt.trueTargetH.toFixed(3)} m`, boxX + 6, boxY + 28);
+        } else {
+          const boxW = 30;
+          const boxH = 16;
+          const labelY = py - 28;
+          ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+          ctx.fillRect(px - boxW / 2, labelY, boxW, boxH);
+          ctx.strokeStyle = "#eab308";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px - boxW / 2, labelY, boxW, boxH);
+
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#fde047";
+          ctx.fillText(isMeasured ? tgt.id : "?", px, labelY + 12);
+        }
+      }
+
+      // 5. Karkea tähtäin vs. Kaukoputken optinen viivaristikko
+      if (tsState.zoom === 1) {
+        ctx.fillStyle = "#1e293b";
+        ctx.strokeStyle = "#eab308";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 85, h);
+        ctx.lineTo(cx - 28, h - 55);
+        ctx.lineTo(cx + 28, h - 55);
+        ctx.lineTo(cx + 85, h);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + 2);
+        ctx.lineTo(cx - 10, cy + 26);
+        ctx.lineTo(cx + 10, cy + 26);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        const atrRadiusPx = Math.min(w * 0.35, 0.14 * pxPerGon);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.55)";
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(18, atrRadiusPx), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = "rgba(15, 23, 42, 0.88)";
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(0, cy);
+        ctx.lineTo(w, cy);
+        ctx.moveTo(cx, 0);
+        ctx.lineTo(cx, h);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+        ctx.moveTo(cx - 8, cy - 35);
+        ctx.lineTo(cx + 8, cy - 35);
+        ctx.moveTo(cx - 8, cy + 35);
+        ctx.lineTo(cx + 8, cy + 35);
+        ctx.stroke();
+
+        if (tsState.edmMode === "prism_less") {
+          ctx.fillStyle = "rgba(239, 68, 68, 0.85)";
+          ctx.beginPath();
+          ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        const vignette = ctx.createRadialGradient(cx, cy, w * 0.38, cx, cy, w * 0.52);
+        vignette.addColorStop(0, "rgba(2, 6, 23, 0)");
+        vignette.addColorStop(1, "rgba(2, 6, 23, 0.78)");
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, w, h);
+
+        const sideX = tsState.face === 1 ? 30 : (w - 30);
+        ctx.fillStyle = tsState.face === 1 ? "rgba(56, 189, 248, 0.85)" : "rgba(251, 146, 60, 0.85)";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(tsState.face === 1 ? "I" : "II", sideX, cy + 4);
+      }
+
+      // 6. Kojeasennon vaihdon selkeä animaatiopeite (kaukoputken kääntö + 200 gon alhidadin kääntö)
+      if (isFaceAnimating) {
+        ctx.fillStyle = "rgba(2, 6, 23, 0.52)";
+        ctx.fillRect(0, 0, w, h);
+
+        const spinAngle = anim.progress * Math.PI * 3;
+        ctx.save();
+        ctx.translate(cx, cy - 12);
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 26, spinAngle, spinAngle + Math.PI * 1.45);
+        ctx.stroke();
+
+        const tipA = spinAngle + Math.PI * 1.45;
+        const tx = Math.cos(tipA) * 26;
+        const ty = Math.sin(tipA) * 26;
+        ctx.fillStyle = "#facc15";
+        ctx.beginPath();
+        ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        const targetFaceText = anim.toFace === 1 ? "I-asentoon" : "II-asentoon";
+        const phaseText = anim.phase === 1
+          ? "1/2: Kaukoputki kääntyy vaaka-akselin ympäri"
+          : "2/2: Alhidadi kääntyy vaakatasossa 200 gon";
+
+        ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+        ctx.fillRect(18, cy + 28, w - 36, 48);
+        ctx.strokeStyle = "#eab308";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(18, cy + 28, w - 36, 48);
+
+        ctx.fillStyle = "#fde047";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`Kojeasennon vaihto ${targetFaceText}`, cx, cy + 44);
+
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(phaseText, cx, cy + 59);
+
+        ctx.fillStyle = "#334155";
+        ctx.fillRect(28, cy + 66, w - 56, 4);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillRect(28, cy + 66, (w - 56) * anim.progress, 4);
+      }
+    }
+
+    function drawMap() {
+      const canvas = document.getElementById("mapCanvas");
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      if (canvas.width !== rect.width || canvas.height !== rect.height) {
+        canvas.width = rect.width || 240;
+        canvas.height = rect.height || 240;
+      }
+
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      const scen = SCENARIOS[currentScenarioIndex];
+      const stn = scen.trueStation;
+      const maxRange = 200;
+
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const p = (w / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(p, 0);
+        ctx.lineTo(p, h);
+        ctx.moveTo(0, p);
+        ctx.lineTo(w, p);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("N ▲", w - 20, 16);
+
+      const anim = tsState.faceAnim;
+      const isFaceAnimating = anim && anim.active;
+      const effAimHz = isFaceAnimating ? anim.renderEffHz : getEffectiveAimHz();
+      const beamScale = isFaceAnimating ? anim.mapBeamScale : 1.0;
+
+      const currentBearingGon = normGon(effAimHz + stn.trueZ0);
+      const beamRad = currentBearingGon * GON_TO_RAD;
+      const fovRad = (tsState.zoom === 8 ? 3.5 : 14) * GON_TO_RAD;
+
+      if (isFaceAnimating) {
+        ctx.strokeStyle = "rgba(250, 204, 21, 0.55)";
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, w * 0.24, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.fillStyle = isFaceAnimating ? "rgba(56, 189, 248, 0.28)" : "rgba(234, 179, 8, 0.16)";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(
+        cx,
+        cy,
+        w * 0.46 * beamScale,
+        beamRad - Math.PI / 2 - fovRad,
+        beamRad - Math.PI / 2 + fovRad
+      );
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = isFaceAnimating ? "rgba(56, 189, 248, 0.95)" : "rgba(250, 204, 21, 0.75)";
+      ctx.setLineDash([4, 3]);
+      ctx.lineWidth = isFaceAnimating ? 2.2 : 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.sin(beamRad) * w * 0.45 * beamScale, cy - Math.cos(beamRad) * h * 0.45 * beamScale);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      for (const tgt of trueTargetsGeometry) {
+        const px = cx + ((tgt.trueE - stn.E) / (2 * maxRange)) * w;
+        const py = cy - ((tgt.trueN - stn.N) / (2 * maxRange)) * h;
+        const obs = tsState.observations.find(o => o.id === tgt.id);
+        const isMeasured = !!obs;
+
+        if (isMeasured) {
+          ctx.strokeStyle = (obs.face1 && obs.face2) ? "rgba(56, 189, 248, 0.7)" : "rgba(16, 185, 129, 0.55)";
+          ctx.lineWidth = (obs.face1 && obs.face2) ? 2.2 : 1.5;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(px, py);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = isMeasured ? "#10b981" : "#f59e0b";
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(px, py, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = isMeasured ? "#6ee7b7" : "#fde047";
+        ctx.font = "bold 10px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(isMeasured ? tgt.id : "?", px, py - 10);
+      }
+
+      ctx.fillStyle = tsState.stationCalculated ? "#10b981" : "#38bdf8";
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = tsState.stationCalculated ? "#6ee7b7" : "#f8fafc";
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(tsState.stationCalculated ? `${tsState.stationName} ✓` : "?", cx, cy + 19);
+    }
+
+    /***********************************************************************
+     * 14. SOVELLUKSEN KÄYNNISTYS
+     ***********************************************************************/
+    function initSimulator() {
+      setupScopeInteraction();
+      setupMapInteraction();
+      resetCurrentScenario();
+      requestAnimationFrame(animationLoop);
+    }
+
+    window.onload = initSimulator;
+  </script>
+</body>
+</html>
